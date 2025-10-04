@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Trophy } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, where } from 'firebase/firestore';
 
 type Player = {
   id: string;
@@ -30,8 +30,7 @@ export function RankingTabs() {
       firestore
         ? query(
             collection(firestore, 'users'),
-            where('isAdmin', '==', false),
-            orderBy('initialScore', 'desc')
+            orderBy('initialScore', 'desc'),
           )
         : null,
     [firestore]
@@ -45,8 +44,10 @@ export function RankingTabs() {
     if (rank === 2) return 'text-yellow-700'; // Bronze
     return 'text-muted-foreground';
   };
+  
+  const playerList = players?.filter(p => p.isAdmin === false);
 
-  const renderRankingTable = (playerList: Player[] | null) => (
+  const renderRankingTable = (list: Player[] | undefined) => (
     <Table>
       <TableHeader>
         <TableRow>
@@ -64,7 +65,7 @@ export function RankingTabs() {
             </TableCell>
           </TableRow>
         )}
-        {playerList?.map((player, index) => (
+        {list?.map((player, index) => (
           <TableRow key={player.id} className={index < 3 ? 'font-bold' : ''}>
             <TableCell className="text-lg">
               <div className="flex items-center gap-2">
@@ -98,14 +99,14 @@ export function RankingTabs() {
         <TabsTrigger value="rodada">Rodada</TabsTrigger>
         <TabsTrigger value="mes">Mês</TabsTrigger>
       </TabsList>
-      <TabsContent value="geral">{renderRankingTable(players)}</TabsContent>
+      <TabsContent value="geral">{renderRankingTable(playerList)}</TabsContent>
       <TabsContent value="rodada">
         {/* Mocked data - in a real app, this would be filtered by round */}
-        {renderRankingTable(players ? [...players].reverse() : [])}
+        {renderRankingTable(playerList ? [...playerList].reverse() : [])}
       </TabsContent>
       <TabsContent value="mes">
         {/* Mocked data - in a real app, this would be filtered by month */}
-        {renderRankingTable(players)}
+        {renderRankingTable(playerList)}
       </TabsContent>
     </Tabs>
   );
