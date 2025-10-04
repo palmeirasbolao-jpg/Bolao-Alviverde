@@ -26,6 +26,7 @@ import {
   useAuth,
   useFirestore,
   setDocumentNonBlocking,
+  deleteDocumentNonBlocking,
 } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
@@ -82,11 +83,11 @@ export function PlayerFormDialog({
     if (isOpen) {
       if (isEditing && player) {
         form.reset({
-          name: player.name,
-          email: player.email,
-          teamName: player.teamName,
-          initialScore: player.initialScore,
-          isAdmin: player.isAdmin,
+          name: player.name || '',
+          email: player.email || '',
+          teamName: player.teamName || '',
+          initialScore: player.initialScore || 0,
+          isAdmin: player.isAdmin || false,
           password: '', // Password is not fetched, leave empty
         });
       } else {
@@ -127,8 +128,8 @@ export function PlayerFormDialog({
             { merge: true }
           );
         } else {
-          // If toggled off, remove admin role
-          setDocumentNonBlocking(adminRoleDocRef, {}, { merge: false });
+          // If toggled off, remove admin role by deleting the document
+          deleteDocumentNonBlocking(adminRoleDocRef);
         }
         
         toast({
