@@ -75,17 +75,7 @@ export function RegisterForm() {
           isAdmin: isAdmin,
         };
         setDocumentNonBlocking(userDocRef, userData, { merge: true });
-
-        // Set public profile data in 'public_profile' collection
-        const publicProfileDocRef = doc(firestore, "public_profile", user.uid);
-        const publicProfileData = {
-          id: user.uid,
-          name: values.name,
-          teamName: values.teamName,
-          totalScore: 0,
-        };
-        setDocumentNonBlocking(publicProfileDocRef, publicProfileData, { merge: true });
-
+        
         if (isAdmin) {
           const adminRoleDocRef = doc(firestore, "roles_admin", user.uid);
           setDocumentNonBlocking(adminRoleDocRef, { userId: user.uid }, { merge: true });

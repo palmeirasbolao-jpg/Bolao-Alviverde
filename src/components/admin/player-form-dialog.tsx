@@ -119,17 +119,7 @@ export function PlayerFormDialog({
           isAdmin: values.isAdmin,
         };
         setDocumentNonBlocking(userDocRef, userData, { merge: true });
-
-        // Update public profile
-        const publicProfileDocRef = doc(firestore, 'public_profile', player.id);
-        const publicProfileData = {
-          name: values.name,
-          teamName: values.teamName,
-          totalScore: values.totalScore,
-        };
-        setDocumentNonBlocking(publicProfileDocRef, publicProfileData, { merge: true });
-
-
+        
         const adminRoleDocRef = doc(firestore, 'roles_admin', player.id);
         if (values.isAdmin) {
           setDocumentNonBlocking(
@@ -180,17 +170,6 @@ export function PlayerFormDialog({
             isAdmin: values.isAdmin,
           };
           setDocumentNonBlocking(userDocRef, userData, { merge: true });
-
-          // Set public profile data in 'public_profile' collection
-          const publicProfileDocRef = doc(firestore, "public_profile", user.uid);
-          const publicProfileData = {
-            id: user.uid,
-            name: values.name,
-            teamName: values.teamName,
-            totalScore: values.totalScore,
-          };
-          setDocumentNonBlocking(publicProfileDocRef, publicProfileData, { merge: true });
-
 
           if (values.isAdmin) {
             const adminRoleDocRef = doc(firestore, 'roles_admin', user.uid);

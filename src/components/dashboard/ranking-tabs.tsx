@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Trophy } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query } from 'firebase/firestore';
 
 type PublicPlayerProfile = {
   id: string;
@@ -25,17 +25,12 @@ export function RankingTabs() {
 
   // Query the public_profile collection which is safe to be read by all users
   const playersQuery = useMemoFirebase(
-    () =>
-      firestore
-        ? query(
-            collection(firestore, 'public_profile'),
-            orderBy('totalScore', 'desc'),
-          )
-        : null,
+    () => (firestore ? query(collection(firestore, 'users')) : null),
     [firestore]
   );
 
-  const { data: players, isLoading } = useCollection<PublicPlayerProfile>(playersQuery);
+  const { data: players, isLoading } =
+    useCollection<PublicPlayerProfile>(playersQuery);
 
   const getTrophyColor = (rank: number) => {
     if (rank === 0) return 'text-yellow-400'; // Gold
@@ -43,8 +38,8 @@ export function RankingTabs() {
     if (rank === 2) return 'text-yellow-700'; // Bronze
     return 'text-muted-foreground';
   };
-  
-  const playerList = players;
+
+  const playerList = players?.sort((a,b) => b.totalScore - a.totalScore);
 
   const renderRankingTable = (list: PublicPlayerProfile[] | undefined) => (
     <Table>
@@ -78,13 +73,17 @@ export function RankingTabs() {
                   <AvatarImage
                     src={`https://picsum.photos/seed/${player.id}/100/100`}
                   />
-                  <AvatarFallback>{player.name ? player.name.charAt(0).toUpperCase() : '?'}</AvatarFallback>
+                  <AvatarFallback>
+                    {player.name ? player.name.charAt(0).toUpperCase() : '?'}
+                  </AvatarFallback>
                 </Avatar>
                 <span>{player.name}</span>
               </div>
             </TableCell>
             <TableCell>{player.teamName}</TableCell>
-            <TableCell className="text-right text-lg">{player.totalScore}</TableCell>
+            <TableCell className="text-right text-lg">
+              {player.totalScore}
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>
