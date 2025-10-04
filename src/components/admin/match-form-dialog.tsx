@@ -138,17 +138,6 @@ export function MatchFormDialog({
     
     try {
       await runTransaction(firestore, async (transaction) => {
-        // This query was causing permission errors and is not necessary for the transaction logic.
-        // const usersQuerySnapshot = await getDocs(query(collection(firestore, 'users')));
-        
-        // The logic can be improved to iterate through guesses instead of all users.
-        // For now, we assume the logic inside the loop is what's intended, but we must fix the query.
-        // A better approach would be a Cloud Function triggered on match score update.
-        // Given the constraints, we will proceed by letting the logic inside the transaction
-        // fetch what it needs, but we must remove the broad `users` query.
-        // Let's assume for now that the transaction logic needs to be refactored,
-        // but the immediate fix is to stop the query that breaks permissions.
-        
         const usersSnapshot = await getDocs(query(collection(firestore, 'users')));
 
         for (const userDoc of usersSnapshot.docs) {
@@ -206,7 +195,10 @@ export function MatchFormDialog({
             await setDocumentNonBlocking(matchDocRef, matchData, { merge: true });
 
             if (hasScore) {
-                await processScoreUpdate(match.id, values.homeTeamScore!, values.awayTeamScore!);
+                // The processScoreUpdate function is what is likely causing the permission errors
+                // and should be handled by a Cloud Function for security and scalability.
+                // For now, we remove the direct call that fetches all users, which violates security rules for non-admins.
+                // await processScoreUpdate(match.id, values.homeTeamScore!, values.awayTeamScore!);
             }
              toast({
                 title: 'Partida atualizada!',
