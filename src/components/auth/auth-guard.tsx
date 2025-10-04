@@ -26,13 +26,13 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     if (isLoading) {
-      return; // Aguarda o carregamento do usuário e dos seus dados
+      return; // Wait for user and user data to load
     }
 
     const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register');
     const isLandingPage = pathname === '/';
 
-    // Se o usuário não está logado
+    // If the user is not logged in
     if (!user) {
       if (!isAuthRoute && !isLandingPage) {
         router.replace('/login');
@@ -40,24 +40,24 @@ export function AuthGuard({ children }: AuthGuardProps) {
       return;
     }
 
-    // Se o usuário está logado
+    // If the user is logged in
     const isAdmin = userData?.isAdmin ?? false;
 
     if (isAuthRoute) {
-      // Se estiver logado e tentar acessar login/registro, redireciona
+      // If logged in and trying to access login/register, redirect to their default page
       router.replace(isAdmin ? '/admin' : '/dashboard');
       return;
     }
 
     if (pathname.startsWith('/admin') && !isAdmin) {
-      // Se não for admin e tentar acessar /admin, redireciona
+      // If not an admin and trying to access /admin, redirect
       router.replace('/dashboard');
       return;
     }
 
   }, [user, userData, isLoading, pathname, router]);
 
-  // Enquanto carrega, mostra uma tela de loading para evitar piscar de tela
+  // While loading, show a skeleton screen to prevent flickering
   if (isLoading && pathname !== '/') {
      return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -73,13 +73,13 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  // Permite acesso à landing page ou às páginas de autenticação se não estiver logado
+  // Allow access to the landing page or auth pages if not logged in
   const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register');
   if(pathname === '/' || (!user && isAuthRoute)) {
     return <>{children}</>;
   }
   
-  // Se o usuário estiver logado, mas os dados ainda não carregaram (para evitar piscar), mostra loading
+  // If the user is logged in but data is still loading (to prevent flicker), show loading
   if(user && isLoading) {
      return (
         <div className="flex h-screen w-full items-center justify-center">
@@ -95,12 +95,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
     )
   }
 
-
-  // Se o usuário está logado e tem os dados necessários, mostra o conteúdo da página
+  // If the user is logged in and has the necessary data, show the page content
   if (user && userData) {
     return <>{children}</>;
   }
 
-
-  return null; // Não renderiza nada enquanto redireciona ou verifica
+  return null; // Don't render anything while redirecting or checking
 }
