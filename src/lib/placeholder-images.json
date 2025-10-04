@@ -1,3 +1,40 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "stadium-background",
+      "description": "A wide shot of a football stadium under the lights.",
+      "imageUrl": "https://images.unsplash.com/photo-1506626637585-0802df0d0269?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxmb290YmFsbCUyMHN0YWRpdW18ZW58MHx8fHwxNzU5NTExMTQ5fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "football stadium"
+    },
+    {
+      "id": "celebrating-fans",
+      "description": "A crowd of football fans celebrating a goal.",
+      "imageUrl": "https://images.unsplash.com/photo-1655587044257-023d0b32cd9a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxmb290YmFsbCUyMGZhbnN8ZW58MHx8fHwxNzU5NTM3Mzc1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "football fans"
+    },
+    {
+      "id": "trophy-display",
+      "description": "A golden trophy on a pedestal.",
+      "imageUrl": "https://images.unsplash.com/photo-1592689321206-3df781b6811e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxnb2xkJTIwdHJvcGh5fGVufDB8fHx8MTc1OTQ4NjY0N3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "gold trophy"
+    },
+    {
+      "id": "player-avatar-1",
+      "description": "Placeholder avatar for a user.",
+      "imageUrl": "https://images.unsplash.com/photo-1540569014015-19a7be504e3a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NTk1MDY2MzN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "player-avatar-2",
+      "description": "Placeholder avatar for a user.",
+      "imageUrl": "https://images.unsplash.com/photo-1600180758890-6b94519a8ba6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NTk1MDY2MzN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "player-avatar-3",
+      "description": "Placeholder avatar for a user.",
+      "imageUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NTk1MDY2MzN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    }
+  ]
 }
