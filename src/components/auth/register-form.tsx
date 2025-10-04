@@ -57,7 +57,7 @@ export function RegisterForm() {
 
       if (user) {
         const userDocRef = doc(firestore, "users", user.uid);
-        const isAdmin = values.email === 'admin@bolao.com';
+        const isAdmin = values.email === 'rodrigochampe82@gmail.com';
         const userData = {
           id: user.uid,
           email: values.email,
