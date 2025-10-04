@@ -30,34 +30,6 @@ function initializeFirebaseAdmin(): { db: Firestore } {
   return { db: getFirestore() };
 }
 
-// Function to calculate points based on guess and result
-const calculatePoints = (
-  homeResult: number,
-  awayResult: number,
-  homeGuess: number,
-  awayGuess: number
-): number => {
-    if (homeResult === homeGuess && awayResult === awayGuess) return 12; // Exact score
-    
-    const resultPalmeirasWon = homeResult > awayResult;
-    const resultOtherTeamWon = homeResult < awayResult;
-    const resultDraw = homeResult === awayResult;
-
-    const guessPalmeirasWon = homeGuess > awayGuess;
-    const guessOtherTeamWon = homeGuess < awayGuess;
-    const guessDraw = homeGuess === awayGuess;
-
-    if ((resultPalmeirasWon && guessPalmeirasWon) || (resultOtherTeamWon && guessOtherTeamWon) || (resultDraw && guessDraw)) {
-        if (homeResult === homeGuess || awayResult === awayGuess) return 5; // Correct winner and one team's score
-        return 3; // Correct winner only
-    }
-
-    if(homeResult === homeGuess || awayResult === awayGuess) return 1; // One team's score correct
-
-    return 0;
-};
-
-
 // --- API Handler ---
 
 export async function POST() {
@@ -98,7 +70,6 @@ export async function POST() {
     // 3. Process and save matches
     const matchesCol = db.collection('matches');
     let matchesAdded = 0;
-    let pointsUpdated = false;
 
     for (const item of data.response) {
       const match = {
@@ -113,64 +84,10 @@ export async function POST() {
       const matchDocRef = matchesCol.doc(match.id);
       await matchDocRef.set(match, { merge: true });
       matchesAdded++;
-
-      // 4. If the match is finished, calculate points for all users' guesses on that match
-      const isFinished = item.fixture.status.short === 'FT';
-      if (isFinished) {
-        const usersSnapshot = await db.collection('users').get();
-        const batch = db.batch();
-
-        for (const userDoc of usersSnapshot.docs) {
-          const guessDocRef = db.collection('users').doc(userDoc.id).collection('guesses').doc(match.id);
-          const guessDoc = await guessDocRef.get();
-
-          if (guessDoc.exists) {
-            const guessData = guessDoc.data();
-            if (guessData) {
-                const points = calculatePoints(
-                    match.homeTeamScore ?? 0,
-                    match.awayTeamScore ?? 0,
-                    guessData.homeTeamGuess,
-                    guessData.awayTeamGuess
-                );
-                 // Only update if pointsAwarded doesn't exist or is different
-                if (guessData.pointsAwarded !== points) {
-                    batch.update(guessDocRef, { pointsAwarded: points });
-                    pointsUpdated = true;
-                }
-            }
-          }
-        }
-        await batch.commit();
-      }
     }
-    
-    // 5. After all matches are processed, if any points were updated, recalculate all users' total scores
-    if (pointsUpdated) {
-        const usersSnapshot = await db.collection('users').get();
-        const totalScoresBatch = db.batch();
-
-        for (const userDoc of usersSnapshot.docs) {
-            const userRef = db.collection('users').doc(userDoc.id);
-            const guessesSnapshot = await userRef.collection('guesses').get();
-            
-            let totalPoints = 0;
-            guessesSnapshot.forEach(doc => {
-                totalPoints += doc.data().pointsAwarded || 0;
-            });
-
-            // Compare with existing totalScore and update only if different
-            const currentUserData = userDoc.data();
-            if (currentUserData.totalScore !== totalPoints) {
-                totalScoresBatch.update(userRef, { totalScore: totalPoints });
-            }
-        }
-        await totalScoresBatch.commit();
-    }
-
 
     return NextResponse.json({
-      message: 'Sincronização concluída com sucesso!',
+      message: 'Sincronização de partidas concluída com sucesso! A atualização de pontos foi desativada para estabilizar o sistema.',
       matchesAdded,
     });
   } catch (error: any) {
