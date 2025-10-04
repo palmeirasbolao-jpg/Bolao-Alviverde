@@ -16,16 +16,17 @@ import {
 import { Landmark, LayoutDashboard, Swords, Trophy, Users } from 'lucide-react';
 import { Logo } from '@/components/icons/logo';
 import { UserNav } from './user-nav';
-import { useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useDoc, useMemoFirebase, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 
 export function AppSidebar() {
   const { user } = useUser();
+  const firestore = useFirestore();
   
   const userDocRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return doc(getFirestore(), "users", user.uid);
-  }, [user]);
+    if (!user || !firestore) return null;
+    return doc(firestore, "users", user.uid);
+  }, [user, firestore]);
 
   const { data: userData } = useDoc<{ isAdmin: boolean }>(userDocRef);
   const isAdmin = userData?.isAdmin ?? false;
@@ -40,24 +41,20 @@ export function AppSidebar() {
           <SidebarGroup>
             <SidebarGroupLabel>Jogador</SidebarGroupLabel>
             <SidebarMenuItem>
-              <Link href="/dashboard" passHref>
-                <SidebarMenuButton asChild tooltip="Palpites" isActive>
-                  <a>
-                    <Swords />
-                    <span>Palpites</span>
-                  </a>
-                </SidebarMenuButton>
-              </Link>
+              <SidebarMenuButton asChild tooltip="Palpites" isActive>
+                <Link href="/dashboard">
+                  <Swords />
+                  <span>Palpites</span>
+                </Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <Link href="/dashboard/ranking" passHref>
-                <SidebarMenuButton asChild tooltip="Ranking">
-                  <a>
-                    <Trophy />
-                    <span>Ranking</span>
-                  </a>
-                </SidebarMenuButton>
-              </Link>
+              <SidebarMenuButton asChild tooltip="Ranking">
+                <Link href="/dashboard/ranking">
+                  <Trophy />
+                  <span>Ranking</span>
+                </Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarGroup>
 
@@ -67,34 +64,28 @@ export function AppSidebar() {
               <SidebarGroup>
                 <SidebarGroupLabel>Administrador</SidebarGroupLabel>
                 <SidebarMenuItem>
-                  <Link href="/admin" passHref>
-                    <SidebarMenuButton asChild tooltip="Dashboard">
-                      <a>
-                        <LayoutDashboard />
-                        <span>Dashboard</span>
-                      </a>
-                    </SidebarMenuButton>
-                  </Link>
+                  <SidebarMenuButton asChild tooltip="Dashboard">
+                    <Link href="/admin">
+                      <LayoutDashboard />
+                      <span>Dashboard</span>
+                    </Link>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <Link href="/admin/matches" passHref>
-                    <SidebarMenuButton asChild tooltip="Gerenciar Partidas">
-                      <a>
-                        <Landmark />
-                        <span>Partidas</span>
-                      </a>
-                    </SidebarMenuButton>
-                  </Link>
+                  <SidebarMenuButton asChild tooltip="Gerenciar Partidas">
+                    <Link href="/admin/matches">
+                      <Landmark />
+                      <span>Partidas</span>
+                    </Link>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <Link href="/admin/players" passHref>
-                    <SidebarMenuButton asChild tooltip="Gerenciar Jogadores">
-                      <a>
-                        <Users />
-                        <span>Jogadores</span>
-                      </a>
-                    </SidebarMenuButton>
-                  </Link>
+                  <SidebarMenuButton asChild tooltip="Gerenciar Jogadores">
+                    <Link href="/admin/players">
+                      <Users />
+                      <span>Jogadores</span>
+                    </Link>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarGroup>
             </>
