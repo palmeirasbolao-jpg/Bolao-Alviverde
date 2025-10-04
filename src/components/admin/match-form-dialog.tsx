@@ -115,13 +115,10 @@ export function MatchFormDialog({
               title: 'Partida atualizada!',
               description: `A partida foi atualizada com sucesso.`,
             });
-            // Trigger API sync if score was updated to recalculate points
+            // Logic to trigger API sync was here
             if (hasScore) {
-              await fetch('/api/sync-matches', { method: 'POST' });
-              toast({
-                  title: 'Recalculando pontos...',
-                  description: 'As pontuações estão sendo atualizadas em segundo plano.',
-              });
+              // The API call to /api/sync-matches was removed from here.
+              // Point recalculation will happen via the dedicated sync button/page if re-enabled.
             }
 
         } else {
