@@ -81,6 +81,7 @@ export async function POST() {
         awayTeamScore: item.goals.away,
       };
 
+      // Only save the match data. Do not calculate scores.
       const matchDocRef = matchesCol.doc(match.id);
       await matchDocRef.set(match, { merge: true });
       matchesAdded++;
@@ -98,4 +99,3 @@ export async function POST() {
     );
   }
 }
-
