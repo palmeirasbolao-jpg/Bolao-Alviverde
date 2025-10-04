@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Trash } from 'lucide-react';
+import { MoreHorizontal, Pen, PlusCircle, Trash } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
@@ -36,7 +36,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { PlayerFormDialog } from '@/components/admin/player-form-dialog';
 
-type Player = {
+export type Player = {
   id: string;
   email: string;
   teamName: string;
@@ -48,12 +48,23 @@ export default function AdminPlayersPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
   const usersQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'users')) : null),
     [firestore]
   );
   const { data: players, isLoading } = useCollection<Player>(usersQuery);
+
+  const handleAddClick = () => {
+    setSelectedPlayer(null);
+    setDialogOpen(true);
+  };
+
+  const handleEditClick = (player: Player) => {
+    setSelectedPlayer(player);
+    setDialogOpen(true);
+  };
 
   const handleDelete = (playerId: string) => {
     if (!firestore) return;
@@ -71,7 +82,11 @@ export default function AdminPlayersPage() {
 
   return (
     <>
-      <PlayerFormDialog isOpen={dialogOpen} onOpenChange={setDialogOpen} />
+      <PlayerFormDialog
+        isOpen={dialogOpen}
+        onOpenChange={setDialogOpen}
+        player={selectedPlayer}
+      />
       <div className="container mx-auto">
         <div className="mb-8 flex justify-between items-center">
           <div>
@@ -79,10 +94,10 @@ export default function AdminPlayersPage() {
               Gerenciar Jogadores
             </h1>
             <p className="text-muted-foreground">
-              Visualize, adicione e remova os participantes do bolão.
+              Visualize, adicione, edite e remova os participantes do bolão.
             </p>
           </div>
-          <Button onClick={() => setDialogOpen(true)}>
+          <Button onClick={handleAddClick}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Jogador
           </Button>
@@ -141,10 +156,15 @@ export default function AdminPlayersPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
+                         <DropdownMenuItem onClick={() => handleEditClick(player)}>
+                          <Pen className="mr-2 h-4 w-4" />
+                          Editar
+                        </DropdownMenuItem>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <DropdownMenuItem
                               onSelect={(e) => e.preventDefault()}
+                              className="text-red-600"
                             >
                               <Trash className="mr-2 h-4 w-4" />
                               Remover
@@ -165,6 +185,7 @@ export default function AdminPlayersPage() {
                               <AlertDialogCancel>Cancelar</AlertDialogCancel>
                               <AlertDialogAction
                                 onClick={() => handleDelete(player.id)}
+                                className="bg-red-600 hover:bg-red-700"
                               >
                                 Remover
                               </AlertDialogAction>

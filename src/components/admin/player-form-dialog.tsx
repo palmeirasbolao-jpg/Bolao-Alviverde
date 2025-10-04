@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -21,39 +22,46 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { useEffect, useState } from 'react';
-import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
+import {
+  useAuth,
+  useFirestore,
+  setDocumentNonBlocking,
+} from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Switch } from '../ui/switch';
+import type { Player } from '@/app/(app)/admin/players/page';
 
 const formSchema = z.object({
   email: z.string().email({
     message: 'Por favor, insira um e-mail válido.',
   }),
-  password: z.string().min(6, {
-    message: 'A senha deve ter pelo menos 6 caracteres.',
-  }),
+  password: z.string().optional(),
   teamName: z.string().min(3, {
     message: 'O nome do time deve ter pelo menos 3 caracteres.',
   }),
+  initialScore: z.coerce.number().min(0, 'A pontuação não pode ser negativa.'),
   isAdmin: z.boolean().default(false),
 });
 
 type PlayerFormDialogProps = {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  player: Player | null;
 };
 
 export function PlayerFormDialog({
   isOpen,
   onOpenChange,
+  player,
 }: PlayerFormDialogProps) {
   const auth = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const isEditing = !!player;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -61,64 +69,118 @@ export function PlayerFormDialog({
       email: '',
       password: '',
       teamName: '',
+      initialScore: 0,
       isAdmin: false,
     },
   });
 
   useEffect(() => {
-    if (!isOpen) {
-      form.reset();
+    if (isOpen) {
+      if (isEditing && player) {
+        form.reset({
+          email: player.email,
+          teamName: player.teamName,
+          initialScore: player.initialScore,
+          isAdmin: player.isAdmin,
+          password: '', // Password is not fetched, leave empty
+        });
+      } else {
+        form.reset({
+          email: '',
+          password: '',
+          teamName: '',
+          initialScore: 0,
+          isAdmin: false,
+        });
+      }
     }
-  }, [isOpen, form]);
+  }, [isOpen, isEditing, player, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!auth || !firestore) return;
+    if (!firestore) return;
     setIsLoading(true);
 
     try {
-      // We need a separate auth instance for creating users, not to conflict with admin's session.
-      // NOTE: This is a simplified approach. In production, user creation should be
-      // handled by a secure backend (e.g., Cloud Function) to avoid needing a second auth instance
-      // or exposing sensitive logic on the client.
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        values.email,
-        values.password
-      );
-      const user = userCredential.user;
-
-      if (user) {
-        const userDocRef = doc(firestore, 'users', user.uid);
+      if (isEditing && player) {
+        // Editing existing player
+        const userDocRef = doc(firestore, 'users', player.id);
         const userData = {
-          id: user.uid,
           email: values.email,
           teamName: values.teamName,
-          initialScore: 0,
+          initialScore: values.initialScore,
           isAdmin: values.isAdmin,
         };
         setDocumentNonBlocking(userDocRef, userData, { merge: true });
 
+        const adminRoleDocRef = doc(firestore, 'roles_admin', player.id);
         if (values.isAdmin) {
-          const adminRoleDocRef = doc(firestore, 'roles_admin', user.uid);
           setDocumentNonBlocking(
             adminRoleDocRef,
-            { userId: user.uid },
+            { userId: player.id },
             { merge: true }
           );
+        } else {
+          // If toggled off, remove admin role
+          setDocumentNonBlocking(adminRoleDocRef, {}, { merge: false });
         }
-      }
+        
+        toast({
+          title: 'Jogador atualizado!',
+          description: `Os dados de ${values.email} foram salvos.`,
+        });
 
-      toast({
-        title: 'Jogador adicionado!',
-        description: `O jogador ${values.email} foi criado com sucesso.`,
-      });
+      } else {
+        // Creating new player
+        if (!values.password || values.password.length < 6) {
+           toast({
+            variant: 'destructive',
+            title: 'Senha necessária',
+            description: 'A senha deve ter pelo menos 6 caracteres.',
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          values.email,
+          values.password
+        );
+        const user = userCredential.user;
+
+        if (user) {
+          const userDocRef = doc(firestore, 'users', user.uid);
+          const userData = {
+            id: user.uid,
+            email: values.email,
+            teamName: values.teamName,
+            initialScore: values.initialScore,
+            isAdmin: values.isAdmin,
+          };
+          setDocumentNonBlocking(userDocRef, userData, { merge: true });
+
+          if (values.isAdmin) {
+            const adminRoleDocRef = doc(firestore, 'roles_admin', user.uid);
+            setDocumentNonBlocking(
+              adminRoleDocRef,
+              { userId: user.uid },
+              { merge: true }
+            );
+          }
+        }
+        toast({
+          title: 'Jogador adicionado!',
+          description: `O jogador ${values.email} foi criado com sucesso.`,
+        });
+      }
       onOpenChange(false);
     } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Erro ao criar jogador',
+        title: `Erro ao ${isEditing ? 'editar' : 'criar'} jogador`,
         description:
-          error.message || 'Ocorreu um erro ao tentar criar o jogador.',
+          error.message ||
+          `Ocorreu um erro ao tentar ${isEditing ? 'editar' : 'criar'} o jogador.`,
       });
     } finally {
       setIsLoading(false);
@@ -129,9 +191,11 @@ export function PlayerFormDialog({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Adicionar Novo Jogador</DialogTitle>
+          <DialogTitle>{isEditing ? 'Editar Jogador' : 'Adicionar Novo Jogador'}</DialogTitle>
           <DialogDescription>
-            Preencha os detalhes para criar uma nova conta.
+            {isEditing
+              ? 'Altere os dados do jogador.'
+              : 'Preencha os detalhes para criar uma nova conta.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -162,19 +226,41 @@ export function PlayerFormDialog({
                 </FormItem>
               )}
             />
-            <FormField
+             <FormField
               control={form.control}
-              name="password"
+              name="initialScore"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Senha</FormLabel>
+                  <FormLabel>Pontuação</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
+                    <Input type="number" min="0" {...field} />
                   </FormControl>
+                   <FormDescription>
+                    Esta é a pontuação total do jogador.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {!isEditing && (
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Senha</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <FormField
               control={form.control}
               name="isAdmin"
@@ -200,7 +286,7 @@ export function PlayerFormDialog({
                 {isLoading && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Salvar Jogador
+                Salvar
               </Button>
             </DialogFooter>
           </form>
