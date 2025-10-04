@@ -1,3 +1,4 @@
+
 // IMPORTANT: To use this API route, you must create a .env.local file
 // in the root of your project and add your RapidAPI credentials:
 // RAPIDAPI_KEY=your_secret_key
@@ -97,6 +98,7 @@ export async function POST() {
     // 3. Process and save matches
     const matchesCol = db.collection('matches');
     let matchesAdded = 0;
+    let pointsUpdated = false;
 
     for (const item of data.response) {
       const match = {
@@ -112,7 +114,7 @@ export async function POST() {
       await matchDocRef.set(match, { merge: true });
       matchesAdded++;
 
-      // 4. If the match is finished, calculate points for all users
+      // 4. If the match is finished, calculate points for all users' guesses on that match
       const isFinished = item.fixture.status.short === 'FT';
       if (isFinished) {
         const usersSnapshot = await db.collection('users').get();
@@ -131,14 +133,23 @@ export async function POST() {
                     guessData.homeTeamGuess,
                     guessData.awayTeamGuess
                 );
-                batch.update(guessDocRef, { pointsAwarded: points });
+                 // Only update if pointsAwarded doesn't exist or is different
+                if (guessData.pointsAwarded !== points) {
+                    batch.update(guessDocRef, { pointsAwarded: points });
+                    pointsUpdated = true;
+                }
             }
           }
         }
         await batch.commit();
+      }
+    }
+    
+    // 5. After all matches are processed, if any points were updated, recalculate all users' total scores
+    if (pointsUpdated) {
+        const usersSnapshot = await db.collection('users').get();
+        const totalScoresBatch = db.batch();
 
-        // After updating points for all guesses in a match, update total scores
-        const usersBatch = db.batch();
         for (const userDoc of usersSnapshot.docs) {
             const userRef = db.collection('users').doc(userDoc.id);
             const guessesSnapshot = await userRef.collection('guesses').get();
@@ -147,11 +158,16 @@ export async function POST() {
             guessesSnapshot.forEach(doc => {
                 totalPoints += doc.data().pointsAwarded || 0;
             });
-            usersBatch.update(userRef, { totalScore: totalPoints });
+
+            // Compare with existing totalScore and update only if different
+            const currentUserData = userDoc.data();
+            if (currentUserData.totalScore !== totalPoints) {
+                totalScoresBatch.update(userRef, { totalScore: totalPoints });
+            }
         }
-        await usersBatch.commit();
-      }
+        await totalScoresBatch.commit();
     }
+
 
     return NextResponse.json({
       message: 'Sincronização concluída com sucesso!',
