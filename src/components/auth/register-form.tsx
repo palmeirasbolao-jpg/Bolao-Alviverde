@@ -62,8 +62,10 @@ export function RegisterForm() {
       if (user) {
         await updateProfile(user, { displayName: values.name });
         
-        const userDocRef = doc(firestore, "users", user.uid);
         const isAdmin = values.email === 'rodrigochampe82@gmail.com';
+        
+        // Set user data in 'users' collection
+        const userDocRef = doc(firestore, "users", user.uid);
         const userData = {
           id: user.uid,
           name: values.name,
@@ -73,6 +75,16 @@ export function RegisterForm() {
           isAdmin: isAdmin,
         };
         setDocumentNonBlocking(userDocRef, userData, { merge: true });
+
+        // Set public profile data in 'public_profile' collection
+        const publicProfileDocRef = doc(firestore, "public_profile", user.uid);
+        const publicProfileData = {
+          id: user.uid,
+          name: values.name,
+          teamName: values.teamName,
+          totalScore: 0,
+        };
+        setDocumentNonBlocking(publicProfileDocRef, publicProfileData, { merge: true });
 
         if (isAdmin) {
           const adminRoleDocRef = doc(firestore, "roles_admin", user.uid);

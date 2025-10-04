@@ -11,32 +11,31 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Trophy } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, where } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 
-type Player = {
+type PublicPlayerProfile = {
   id: string;
   name: string;
-  email: string;
   teamName: string;
   totalScore: number;
-  isAdmin: boolean;
 };
 
 export function RankingTabs() {
   const firestore = useFirestore();
 
+  // Query the public_profile collection which is safe to be read by all users
   const playersQuery = useMemoFirebase(
     () =>
       firestore
         ? query(
-            collection(firestore, 'users'),
+            collection(firestore, 'public_profile'),
             orderBy('totalScore', 'desc'),
           )
         : null,
     [firestore]
   );
 
-  const { data: players, isLoading } = useCollection<Player>(playersQuery);
+  const { data: players, isLoading } = useCollection<PublicPlayerProfile>(playersQuery);
 
   const getTrophyColor = (rank: number) => {
     if (rank === 0) return 'text-yellow-400'; // Gold
@@ -45,9 +44,9 @@ export function RankingTabs() {
     return 'text-muted-foreground';
   };
   
-  const playerList = players?.filter(p => p.isAdmin === false);
+  const playerList = players;
 
-  const renderRankingTable = (list: Player[] | undefined) => (
+  const renderRankingTable = (list: PublicPlayerProfile[] | undefined) => (
     <Table>
       <TableHeader>
         <TableRow>
@@ -79,7 +78,7 @@ export function RankingTabs() {
                   <AvatarImage
                     src={`https://picsum.photos/seed/${player.id}/100/100`}
                   />
-                  <AvatarFallback>{player.name ? player.name.charAt(0).toUpperCase() : player.email.charAt(0).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback>{player.name ? player.name.charAt(0).toUpperCase() : '?'}</AvatarFallback>
                 </Avatar>
                 <span>{player.name}</span>
               </div>

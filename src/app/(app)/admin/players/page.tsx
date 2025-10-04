@@ -75,9 +75,13 @@ export default function AdminPlayersPage() {
 
   const handleDelete = (playerId: string) => {
     if (!firestore) return;
+    // Delete from users, public_profile and roles_admin
     const playerDocRef = doc(firestore, 'users', playerId);
     deleteDocumentNonBlocking(playerDocRef);
-    // Also remove from roles_admin if they are an admin
+    
+    const publicProfileDocRef = doc(firestore, 'public_profile', playerId);
+    deleteDocumentNonBlocking(publicProfileDocRef);
+
     const adminRoleDocRef = doc(firestore, 'roles_admin', playerId);
     deleteDocumentNonBlocking(adminRoleDocRef);
 
@@ -182,7 +186,7 @@ export default function AdminPlayersPage() {
                                 Essa ação não pode ser desfeita. Isso irá
                                 remover permanentemente o jogador e todos os
                                 seus dados.
-                              </AlertDialogDescription>
+                              </EspecialDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancelar</AlertDialogCancel>
