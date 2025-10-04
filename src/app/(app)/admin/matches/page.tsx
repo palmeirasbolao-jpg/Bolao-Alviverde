@@ -1,3 +1,4 @@
+'use client';
 import {
   Table,
   TableBody,
@@ -5,20 +6,45 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { matches } from "@/lib/data";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { MoreHorizontal } from "lucide-react";
+} from '@/components/ui/table';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { MoreHorizontal } from 'lucide-react';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query } from 'firebase/firestore';
+import { Card } from '@/components/ui/card';
+
+type Match = {
+  id: string;
+  matchDateTime: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeTeamScore?: number;
+  awayTeamScore?: number;
+};
 
 export default function AdminMatchesPage() {
+  const firestore = useFirestore();
+  const matchesQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, 'matches')) : null),
+    [firestore]
+  );
+  const { data: matches, isLoading } = useCollection<Match>(matchesQuery);
+
+  const getMatchStatus = (match: Match) => {
+    const isFinished = typeof match.homeTeamScore === 'number' && typeof match.awayTeamScore === 'number';
+    return isFinished ? 'finished' : 'scheduled';
+  }
+
   return (
     <div className="container mx-auto">
       <div className="mb-8 flex justify-between items-center">
         <div>
-          <h1 className="font-headline text-3xl font-bold">Gerenciar Partidas</h1>
+          <h1 className="font-headline text-3xl font-bold">
+            Gerenciar Partidas
+          </h1>
           <p className="text-muted-foreground">
             Adicione, edite e atualize os resultados das partidas.
           </p>
@@ -38,39 +64,52 @@ export default function AdminMatchesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {matches.map((match) => (
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center">
+                  Carregando...
+                </TableCell>
+              </TableRow>
+            )}
+            {matches?.map((match) => {
+              const status = getMatchStatus(match);
+              return (
               <TableRow key={match.id}>
                 <TableCell className="font-medium">
                   {match.homeTeam} vs {match.awayTeam}
                 </TableCell>
                 <TableCell>
-                  {format(new Date(match.date), "dd/MM/yy HH:mm", { locale: ptBR })}
+                  {format(new Date(match.matchDateTime), 'dd/MM/yy HH:mm', {
+                    locale: ptBR,
+                  })}
                 </TableCell>
                 <TableCell className="font-bold">
-                  {match.status === 'finished' ? `${match.homeScore} x ${match.awayScore}` : '-'}
+                  {status === 'finished'
+                    ? `${match.homeTeamScore} x ${match.awayTeamScore}`
+                    : '-'}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={match.status === 'finished' ? 'secondary' : 'default'} className={match.status === 'finished' ? '' : 'bg-yellow-500 text-black'}>
-                    {match.status === 'finished' ? 'Finalizada' : 'Agendada'}
+                  <Badge
+                    variant={status === 'finished' ? 'secondary' : 'default'}
+                    className={
+                      status === 'finished'
+                        ? ''
+                        : 'bg-yellow-500 text-black'
+                    }
+                  >
+                    {status === 'finished' ? 'Finalizada' : 'Agendada'}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                   <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="icon">
                     <MoreHorizontal className="h-4 w-4" />
-                   </Button>
+                  </Button>
                 </TableCell>
               </TableRow>
-            ))}
+            )})}
           </TableBody>
         </Table>
       </Card>
     </div>
   );
 }
-
-// Dummy Card component to satisfy structure
-const Card = ({ children }: { children: React.ReactNode }) => (
-  <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-    {children}
-  </div>
-);
