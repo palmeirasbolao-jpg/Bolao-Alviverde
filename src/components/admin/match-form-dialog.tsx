@@ -94,43 +94,6 @@ export function MatchFormDialog({
     }
   }, [match, form]);
 
-  const calculatePoints = (
-    homeResult: number,
-    awayResult: number,
-    homeGuess: number,
-    awayGuess: number
-  ) => {
-    // Regra 1: Acertou o resultado exato
-    if (homeResult === homeGuess && awayResult === awayGuess) {
-      return 12;
-    }
-
-    const resultPalmeirasWon = homeResult > awayResult;
-    const resultOtherTeamWon = homeResult < awayResult;
-    const resultDraw = homeResult === awayResult;
-
-    const guessPalmeirasWon = homeGuess > awayGuess;
-    const guessOtherTeamWon = homeGuess < awayGuess;
-    const guessDraw = homeGuess === awayGuess;
-
-    // Regra 2: Acertou o vencedor e o placar de um dos times
-    if ((resultPalmeirasWon && guessPalmeirasWon) || (resultOtherTeamWon && guessOtherTeamWon) || (resultDraw && guessDraw)) {
-        if(homeResult === homeGuess || awayResult === awayGuess) return 5;
-    }
-
-    // Regra 3: Acertou apenas o vencedor
-    if ((resultPalmeirasWon && guessPalmeirasWon) || (resultOtherTeamWon && guessOtherTeamWon) || (resultDraw && guessDraw)) {
-        return 3;
-    }
-    
-    // Regra 4: Acertou o número de gols de um dos times
-    if(homeResult === homeGuess || awayResult === awayGuess) return 1;
-
-
-    return 0;
-  };
-
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!firestore) return;
     setIsLoading(true);
@@ -148,19 +111,19 @@ export function MatchFormDialog({
             const matchDocRef = doc(firestore, 'matches', match.id);
             await setDocumentNonBlocking(matchDocRef, matchData, { merge: true });
 
+            toast({
+              title: 'Partida atualizada!',
+              description: `A partida foi atualizada com sucesso.`,
+            });
+            // Trigger API sync if score was updated to recalculate points
             if (hasScore) {
-                // The complex transaction logic that caused permission errors has been removed.
-                // A server-side function (e.g., a Cloud Function) would be the robust way to handle score recalculations across all users.
-                 toast({
-                    title: 'Placar atualizado!',
-                    description: 'As pontuações serão recalculadas em breve. (Simulado)',
-                });
-            } else {
-                 toast({
-                    title: 'Partida atualizada!',
-                    description: `A partida foi atualizada com sucesso.`,
-                });
+              await fetch('/api/sync-matches', { method: 'POST' });
+              toast({
+                  title: 'Recalculando pontos...',
+                  description: 'As pontuações estão sendo atualizadas em segundo plano.',
+              });
             }
+
         } else {
             const matchesColRef = collection(firestore, 'matches');
             await addDocumentNonBlocking(matchesColRef, matchData);

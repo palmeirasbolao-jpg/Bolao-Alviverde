@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Pen, PlusCircle, Trash } from 'lucide-react';
+import { MoreHorizontal, Pen, PlusCircle, Trash, RefreshCw, Loader2 } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { Card } from '@/components/ui/card';
@@ -51,6 +51,7 @@ export default function AdminMatchesPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
   const matchesQuery = useMemoFirebase(
@@ -86,6 +87,31 @@ export default function AdminMatchesPage() {
     });
   }
 
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/sync-matches', {
+        method: 'POST',
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Falha ao sincronizar partidas.');
+      }
+      toast({
+        title: 'Sincronização Concluída',
+        description: `${result.matchesAdded} partidas adicionadas/atualizadas.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro na Sincronização',
+        description: error.message,
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <>
       <MatchFormDialog
@@ -103,10 +129,20 @@ export default function AdminMatchesPage() {
               Adicione, edite e atualize os resultados das partidas.
             </p>
           </div>
-          <Button onClick={handleAddClick}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Adicionar Partida
-          </Button>
+          <div className="flex gap-2">
+             <Button onClick={handleSync} disabled={isSyncing}>
+              {isSyncing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Sincronizar com API
+            </Button>
+            <Button onClick={handleAddClick}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Adicionar Partida
+            </Button>
+          </div>
         </div>
 
         <Card>
