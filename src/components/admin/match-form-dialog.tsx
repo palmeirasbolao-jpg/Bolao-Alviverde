@@ -115,12 +115,6 @@ export function MatchFormDialog({
               title: 'Partida atualizada!',
               description: `A partida foi atualizada com sucesso.`,
             });
-            // Logic to trigger API sync was here
-            if (hasScore) {
-              // The API call to /api/sync-matches was removed from here.
-              // Point recalculation will happen via the dedicated sync button/page if re-enabled.
-            }
-
         } else {
             const matchesColRef = collection(firestore, 'matches');
             await addDocumentNonBlocking(matchesColRef, matchData);
