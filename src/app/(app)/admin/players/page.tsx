@@ -7,7 +7,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, Pen, PlusCircle, Trash } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -110,8 +109,6 @@ export default function AdminPlayersPage() {
               <TableRow>
                 <TableHead>Jogador</TableHead>
                 <TableHead>Time</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
                 <TableHead className="text-right">Pontos</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -119,7 +116,7 @@ export default function AdminPlayersPage() {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center">
+                  <TableCell colSpan={4} className="text-center">
                     Carregando...
                   </TableCell>
                 </TableRow>
@@ -140,12 +137,6 @@ export default function AdminPlayersPage() {
                     </div>
                   </TableCell>
                   <TableCell>{player.teamName}</TableCell>
-                  <TableCell>{player.email}</TableCell>
-                  <TableCell>
-                    <Badge variant={player.isAdmin ? 'destructive' : 'outline'}>
-                      {player.isAdmin ? 'admin' : 'player'}
-                    </Badge>
-                  </TableCell>
                   <TableCell className="text-right font-bold">
                     {player.initialScore}
                   </TableCell>
