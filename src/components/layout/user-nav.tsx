@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LogOut } from "lucide-react";
 import { useUser, useAuth } from "@/firebase";
-import { signOut } from "firebase/auth";
+import { signOut } from "@/firebase/auth";
 import { useRouter } from "next/navigation";
 
 export function UserNav() {
