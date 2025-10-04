@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { MoreHorizontal, Pen, PlusCircle, Trash } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, doc } from 'firebase/firestore';
+import { collection, query, doc, where, orderBy } from 'firebase/firestore';
 import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -51,7 +51,14 @@ export default function AdminPlayersPage() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
   const usersQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'users')) : null),
+    () =>
+      firestore
+        ? query(
+            collection(firestore, 'users'),
+            where('isAdmin', '==', false),
+            orderBy('name', 'asc')
+          )
+        : null,
     [firestore]
   );
   const { data: players, isLoading } = useCollection<Player>(usersQuery);
@@ -130,7 +137,11 @@ export default function AdminPlayersPage() {
                           src={`https://picsum.photos/seed/p${player.id}/100/100`}
                         />
                         <AvatarFallback>
-                          {(player.name || player.email || 'U').charAt(0).toUpperCase()}
+                          {(
+                            player.name ||
+                            player.email ||
+                            'U'
+                          ).charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <span>{player.name}</span>
