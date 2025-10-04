@@ -106,22 +106,29 @@ export function MatchFormDialog({
     homeGuess: number,
     awayGuess: number
   ) => {
-    // Exact score
-    if (homeResult === homeGuess && awayResult === awayGuess) {
-      return 10;
+    // Assuming home team is always Palmeiras
+    const palmeirasWon = homeResult > awayResult;
+    const userGuessedVictory = homeGuess > awayGuess;
+
+    // 3 pontos: Acertou o resultado exato da vitória do palmeiras
+    if (palmeirasWon && homeResult === homeGuess && awayResult === awayGuess) {
+      return 3;
     }
 
-    const resultWinner = homeResult > awayResult ? 'home' : homeResult < awayResult ? 'away' : 'draw';
-    const guessWinner = homeGuess > awayGuess ? 'home' : homeGuess < awayGuess ? 'away' : 'draw';
-    
-    // Guessed winner and goal difference
-    if (resultWinner === guessWinner && resultWinner !== 'draw' && (homeResult - awayResult === homeGuess - awayGuess)) {
-      return 5;
+    // 2 pontos: acertou a vitória e os gols do palmeiras mas errou o resultado
+    if (palmeirasWon && userGuessedVictory && homeResult === homeGuess && awayResult !== awayGuess) {
+      return 2;
     }
-    
-    // Guessed winner or guessed a draw (but not exact score)
-    if (resultWinner === guessWinner) {
-      return 3;
+
+    // 1 ponto: acertou a vitória e errou gols e placar
+    if (palmeirasWon && userGuessedVictory && (homeResult !== homeGuess || awayResult !== awayGuess)) {
+      return 1;
+    }
+
+    // 1 ponto: acertou gols palmeiras, mas empate ou derrota
+    const palmeirasDidNotWin = homeResult <= awayResult;
+    if (palmeirasDidNotWin && homeResult === homeGuess) {
+      return 1;
     }
 
     return 0;
