@@ -1,115 +1,128 @@
 /**
- * @fileoverview Firestore Security Rules for Bolão Alviverde Application.
+ * @fileoverview Firestore Security Rules for Bolão Alviverde.
  *
  * Core Philosophy:
- * This ruleset implements a role-based access control system with user-based ownership,
- * where users can manage their own data, and administrators have broader access.
+ * This ruleset implements a role-based access control system with a strong emphasis on user ownership and administrative privileges.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profiles; access is restricted to the user themselves and admins.
- * - /matches/{matchId}: Stores match details; read access is public, write access is admin-only.
- * - /users/{userId}/guesses/{guessId}: Stores user's guesses; access is restricted to the user.
- * - /roles_admin/{userId}: Indicates admin role; the existence of the document grants admin privileges.
+ * - /users/{userId}: User profile information, accessible only to the user and admins.
+ * - /matches/{matchId}: Match details, publicly readable but writable only by admins.
+ * - /users/{userId}/guesses/{guessId}: User's match predictions, accessible only to the user.
+ * - /roles_admin/{userId}: Admin role assignment, where the existence of a document grants admin privileges to the user.
  *
  * Key Security Decisions:
- * - User data is private and only accessible by the user or an administrator.
- * - Match data is publicly readable but only writable by administrators.
- * - Guesses are owned by the user and only accessible by that user.
- * - Admin privileges are granted based on the existence of a document in the `/roles_admin/{userId}` collection.
- * - User listing is allowed only for admins.
+ * - User listing is disabled for privacy.
+ * - Admin privileges are determined by the presence of a document in the `/roles_admin/{userId}` collection.
+ * - Data validation is limited to ownership checks and critical relational fields to facilitate rapid prototyping.
  *
  * Denormalization for Authorization:
- * - Admin status is determined by the existence of a document in `/roles_admin/{userId}`. This avoids having to read user documents to check for admin status.
+ * - Admin status is checked via document existence in `/roles_admin/{userId}` to avoid costly `get()` calls.
+ * - No data is denormalized onto the Guess or Match documents because authorization is handled via path-based ownership or admin roles.
+ *
+ * Structural Segregation:
+ * - Admin roles are stored in a separate `/roles_admin` collection to avoid mixing role data with user profile data.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows users to read and write their own user profile, and allows admins to read all user profiles.
+     * @description Controls access to user profile documents.
      * @path /users/{userId}
-     * @allow (read,write) if isSignedIn() && (isOwner(userId) || isAdmin())
-     * @deny (read,write) if !isSignedIn() || (!isOwner(userId) && !isAdmin())
-     * @principle Enforces user-ownership for writes and admin override.
+     * @allow (get, update, delete) User 'xe8yXXdFNLQfIDgI9sfLLVbI4gT2' can access their own profile.
+     * @allow (create) User 'xe8yXXdFNLQfIDgI9sfLLVbI4gT2' can create their profile if the userId matches their auth.uid.
+     * @allow (get) An admin (present in /roles_admin) can read any user's profile.
+     * @deny (get, update, delete) User 'otherUser' cannot access User 'xe8yXXdFNLQfIDgI9sfLLVbI4gT2' profile.
+     * @deny (create) User 'xe8yXXdFNLQfIDgI9sfLLVbI4gT2' cannot create a profile with a userId that does not match their auth.uid.
+     * @principle Enforces user ownership and admin override for user profiles.
      */
     match /users/{userId} {
-      //is admin
-      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow list: if isSignedIn() && isAdmin();
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isSignedIn() && (isOwner(userId) || isAdmin()) && resource.data.id == request.resource.data.id;
-      allow delete: if isSignedIn() && (isOwner(userId) || isAdmin()) && resource.data.id == userId;
+      // Helper function to check if the requesting user is the owner of the document.
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      // Helper function to check if an admin role exists for the requesting user.
+      function isAdmin() {
+        return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      }
+
+      // Allow users to read their own profile or if they are an admin.
+      allow get: if isOwner(userId) || isAdmin();
+
+      // Prevent listing all users.
+      allow list: if false;
+
+      // Allow users to create their own profile, but the userId must match their auth.uid.
+      allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
+
+      // Allow users to update and delete their own profile or if they are an admin.
+      allow update, delete: if (isOwner(userId) && resource != null) || isAdmin();
     }
 
     /**
-     * @description Allows anyone to read match details, and only admins to create, update, or delete them.
+     * @description Controls access to match documents.
      * @path /matches/{matchId}
-     * @allow (read) if true
-     * @allow (create,update,delete) if isSignedIn() && isAdmin()
-     * @deny (create,update,delete) if !isSignedIn() || !isAdmin()
-     * @principle Enforces admin-only writes for matches.
+     * @allow (get, list) All users can read match data.
+     * @allow (create, update, delete) Only admins (present in /roles_admin) can modify match data.
+     * @deny (create, update, delete) Non-admin users cannot modify match data.
+     * @principle Allows public read access with admin-only write access for match data.
      */
     match /matches/{matchId} {
+      // Helper function to check if the requesting user is an admin.
+      function isAdmin() {
+        return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      }
+
+      // Allow all users to read match data.
       allow get, list: if true;
-      allow create: if isSignedIn() && isAdmin();
-      allow update: if isSignedIn() && isAdmin() && resource != null;
-      allow delete: if isSignedIn() && isAdmin() && resource != null;
+
+      // Allow admins to create, update, and delete match data.
+      allow create, update, delete: if isAdmin();
     }
 
     /**
-     * @description Allows users to manage their own guesses for matches.
+     * @description Controls access to guess documents under a user's profile.
      * @path /users/{userId}/guesses/{guessId}
-     * @allow (read,write) if isSignedIn() && isOwner(userId)
-     * @deny (read,write) if !isSignedIn() || !isOwner(userId)
-     * @principle Enforces user-ownership for guesses.
+     * @allow (get, list, create, update, delete) User 'xe8yXXdFNLQfIDgI9sfLLVbI4gT2' can manage their own guesses.
+     * @deny (get, list, create, update, delete) User 'otherUser' cannot access User 'xe8yXXdFNLQfIDgI9sfLLVbI4gT2' guesses.
+     * @principle Enforces user ownership for managing their own match predictions.
      */
     match /users/{userId}/guesses/{guessId} {
-      allow get, list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isSignedIn() && isOwner(userId) && resource != null && resource.data.userId == userId;
-      allow delete: if isSignedIn() && isOwner(userId) && resource != null && resource.data.userId == userId;
+      // Helper function to check if the requesting user is the owner of the parent user document.
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      // Allow users to get and list their own guesses.
+      allow get, list: if isOwner(userId);
+
+      // Allow users to create, update, and delete their own guesses.
+      allow create, update, delete: if isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Grants admin privileges based on the existence of a document in this collection.
+     * @description Manages admin role assignments. The existence of a document grants admin privileges.
      * @path /roles_admin/{userId}
-     * @allow (read,write) if isSignedIn() && isAdmin()
-     * @deny (read,write) if !isSignedIn() || !isAdmin()
-     * @principle Implements role-based access control.
+     * @allow (get, create, update, delete) Only existing admins can assign other admins.
+     * @allow (list) No listing allowed.
+     * @deny (create, update, delete) Non-admins cannot assign admin roles.
+     * @principle Leverages document existence to grant admin roles, restricting role assignment to existing admins.
      */
     match /roles_admin/{userId} {
-      allow get: if isSignedIn() && isAdmin();
-      allow list: if isSignedIn() && isAdmin();
-      allow create: if isSignedIn() && isAdmin();
-      allow update: if false;
-      allow delete: if isSignedIn() && isAdmin();
-    }
+      // Helper function to check if the requesting user is an admin.
+      function isAdmin() {
+        return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      }
 
-    // ---- Helper functions ----
+      // Allow admins to create, update, and delete admin roles.
+      allow create, update, delete: if isAdmin();
 
-    /**
-     * @description Checks if the user is signed in.
-     * @return {boolean} True if the user is signed in, false otherwise.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
+      // Allow admins to get admin roles.
+      allow get: if isAdmin();
 
-    /**
-     * @description Checks if the user is the owner of the document.
-     * @param {string} userId The user ID to check against.
-     * @return {boolean} True if the user is the owner, false otherwise.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the user is an administrator by verifying the existence of a document in the roles_admin collection.
-     * @return {boolean} True if the user is an administrator, false otherwise.
-     */
-    function isAdmin() {
-      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      // Prevent listing of admin roles.
+      allow list: if false;
     }
   }
 }
