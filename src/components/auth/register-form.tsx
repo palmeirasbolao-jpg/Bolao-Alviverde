@@ -57,14 +57,20 @@ export function RegisterForm() {
 
       if (user) {
         const userDocRef = doc(firestore, "users", user.uid);
+        const isAdmin = values.email === 'admin@bolao.com';
         const userData = {
           id: user.uid,
           email: values.email,
           teamName: values.teamName,
-          initialScore: 0, // Default to 0
-          isAdmin: false, // Default to false
+          initialScore: 0,
+          isAdmin: isAdmin,
         };
         setDocumentNonBlocking(userDocRef, userData, { merge: true });
+
+        if (isAdmin) {
+          const adminRoleDocRef = doc(firestore, "roles_admin", user.uid);
+          setDocumentNonBlocking(adminRoleDocRef, { userId: user.uid }, { merge: true });
+        }
       }
 
       toast({
