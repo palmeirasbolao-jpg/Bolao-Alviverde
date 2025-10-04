@@ -11,26 +11,52 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Trophy } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 
-type PublicPlayerProfile = {
+// Represents the public-facing data for the ranking.
+type RankingProfile = {
   id: string;
   name: string;
   teamName: string;
   totalScore: number;
+  monthlyScore: number;
+  roundScore: number;
 };
 
 export function RankingTabs() {
   const firestore = useFirestore();
 
-  // Query the public_profile collection which is safe to be read by all users
-  const playersQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'users')) : null),
+  // Query the public 'ranking' collection which is safe to be read by all users.
+  const generalRankingQuery = useMemoFirebase(
+    () =>
+      firestore
+        ? query(collection(firestore, 'ranking'), orderBy('totalScore', 'desc'))
+        : null,
     [firestore]
   );
+  const { data: generalRanking, isLoading: isLoadingGeneral } =
+    useCollection<RankingProfile>(generalRankingQuery);
 
-  const { data: players, isLoading } =
-    useCollection<PublicPlayerProfile>(playersQuery);
+  const monthlyRankingQuery = useMemoFirebase(
+    () =>
+      firestore
+        ? query(collection(firestore, 'ranking'), orderBy('monthlyScore', 'desc'))
+        : null,
+    [firestore]
+  );
+  const { data: monthlyRanking, isLoading: isLoadingMonthly } =
+    useCollection<RankingProfile>(monthlyRankingQuery);
+  
+  const roundRankingQuery = useMemoFirebase(
+    () =>
+      firestore
+        ? query(collection(firestore, 'ranking'), orderBy('roundScore', 'desc'))
+        : null,
+    [firestore]
+  );
+  const { data: roundRanking, isLoading: isLoadingRound } =
+    useCollection<RankingProfile>(roundRankingQuery);
+
 
   const getTrophyColor = (rank: number) => {
     if (rank === 0) return 'text-yellow-400'; // Gold
@@ -39,9 +65,11 @@ export function RankingTabs() {
     return 'text-muted-foreground';
   };
 
-  const playerList = players?.sort((a,b) => b.totalScore - a.totalScore);
-
-  const renderRankingTable = (list: PublicPlayerProfile[] | undefined) => (
+  const renderRankingTable = (
+    list: RankingProfile[] | undefined,
+    scoreField: keyof RankingProfile,
+    isLoading: boolean
+    ) => (
     <Table>
       <TableHeader>
         <TableRow>
@@ -82,7 +110,7 @@ export function RankingTabs() {
             </TableCell>
             <TableCell>{player.teamName}</TableCell>
             <TableCell className="text-right text-lg">
-              {player.totalScore}
+              {String(player[scoreField])}
             </TableCell>
           </TableRow>
         ))}
@@ -97,14 +125,12 @@ export function RankingTabs() {
         <TabsTrigger value="rodada">Rodada</TabsTrigger>
         <TabsTrigger value="mes">Mês</TabsTrigger>
       </TabsList>
-      <TabsContent value="geral">{renderRankingTable(playerList)}</TabsContent>
+      <TabsContent value="geral">{renderRankingTable(generalRanking, 'totalScore', isLoadingGeneral)}</TabsContent>
       <TabsContent value="rodada">
-        {/* Mocked data - in a real app, this would be filtered by round */}
-        {renderRankingTable(playerList ? [...playerList].reverse() : [])}
+        {renderRankingTable(roundRanking, 'roundScore', isLoadingRound)}
       </TabsContent>
       <TabsContent value="mes">
-        {/* Mocked data - in a real app, this would be filtered by month */}
-        {renderRankingTable(playerList)}
+        {renderRankingTable(monthlyRanking, 'monthlyScore', isLoadingMonthly)}
       </TabsContent>
     </Tabs>
   );

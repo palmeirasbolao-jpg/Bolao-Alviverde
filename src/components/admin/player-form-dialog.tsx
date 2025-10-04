@@ -110,6 +110,7 @@ export function PlayerFormDialog({
     try {
       if (isEditing && player) {
         // Editing existing player
+        // Update private user data
         const userDocRef = doc(firestore, 'users', player.id);
         const userData = {
           name: values.name,
@@ -119,6 +120,15 @@ export function PlayerFormDialog({
           isAdmin: values.isAdmin,
         };
         setDocumentNonBlocking(userDocRef, userData, { merge: true });
+
+        // Update public ranking data
+        const rankingDocRef = doc(firestore, 'ranking', player.id);
+        const rankingData = {
+          name: values.name,
+          teamName: values.teamName,
+          totalScore: values.totalScore,
+        };
+        setDocumentNonBlocking(rankingDocRef, rankingData, { merge: true });
         
         const adminRoleDocRef = doc(firestore, 'roles_admin', player.id);
         if (values.isAdmin) {
@@ -170,6 +180,18 @@ export function PlayerFormDialog({
             isAdmin: values.isAdmin,
           };
           setDocumentNonBlocking(userDocRef, userData, { merge: true });
+
+          // Set public ranking data in 'ranking' collection
+           const rankingDocRef = doc(firestore, "ranking", user.uid);
+           const rankingData = {
+             id: user.uid,
+             name: values.name,
+             teamName: values.teamName,
+             totalScore: values.totalScore,
+             monthlyScore: 0,
+             roundScore: 0,
+           };
+           setDocumentNonBlocking(rankingDocRef, rankingData, { merge: true });
 
           if (values.isAdmin) {
             const adminRoleDocRef = doc(firestore, 'roles_admin', user.uid);

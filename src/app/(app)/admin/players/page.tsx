@@ -71,9 +71,12 @@ export default function AdminPlayersPage() {
 
   const handleDelete = (playerId: string) => {
     if (!firestore) return;
-    // Delete from users and roles_admin
+    // Delete from users, ranking and roles_admin
     const playerDocRef = doc(firestore, 'users', playerId);
     deleteDocumentNonBlocking(playerDocRef);
+
+    const rankingDocRef = doc(firestore, 'ranking', playerId);
+    deleteDocumentNonBlocking(rankingDocRef);
 
     const adminRoleDocRef = doc(firestore, 'roles_admin', playerId);
     deleteDocumentNonBlocking(adminRoleDocRef);

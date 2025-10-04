@@ -77,9 +77,7 @@
         "id",
         "matchDateTime",
         "homeTeam",
-        "awayTeam",
-        "homeTeamScore",
-        "awayTeamScore"
+        "awayTeam"
       ]
     },
     "Guess": {
@@ -118,8 +116,47 @@
         "userId",
         "matchId",
         "homeTeamGuess",
-        "awayTeamGuess",
-        "pointsAwarded"
+        "awayTeamGuess"
+      ]
+    },
+    "RankingProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RankingProfile",
+      "type": "object",
+      "description": "A public-facing profile for a user, containing only data for the ranking.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user, same as in the 'users' collection."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "teamName": {
+          "type": "string",
+          "description": "The name of the team chosen by the user."
+        },
+        "totalScore": {
+          "type": "number",
+          "description": "The total (general) score of the user."
+        },
+        "monthlyScore": {
+          "type": "number",
+          "description": "The calculated score for the current month."
+        },
+        "roundScore": {
+          "type": "number",
+          "description": "The calculated score for the current round."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "teamName",
+        "totalScore",
+        "monthlyScore",
+        "roundScore"
       ]
     }
   },
@@ -136,9 +173,25 @@
         "definition": {
           "entityName": "User",
           "schema": {
-            "$ref": "#/backend/entities/User"
+            "$ref": "#/entities/User"
           },
-          "description": "Stores user profiles.  Only the user or an admin can read/write their profile. Includes user ID as the document ID.",
+          "description": "Stores private user profiles. Only the user or an admin can read/write their profile.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/ranking/{userId}",
+        "definition": {
+          "entityName": "RankingProfile",
+          "schema": {
+            "$ref": "#/entities/RankingProfile"
+          },
+          "description": "Stores public, denormalized data for the leaderboard. Can be read by any user, but only written by backend processes or admins.",
           "params": [
             {
               "name": "userId",
@@ -152,7 +205,7 @@
         "definition": {
           "entityName": "Match",
           "schema": {
-            "$ref": "#/backend/entities/Match"
+            "$ref": "#/entities/Match"
           },
           "description": "Stores match details. Admin-only write; all users can read.",
           "params": [
@@ -168,7 +221,7 @@
         "definition": {
           "entityName": "Guess",
           "schema": {
-            "$ref": "#/backend/entities/Guess"
+            "$ref": "#/entities/Guess"
           },
           "description": "Stores user guesses for each match. Path-based ownership: only the user can manage their own guesses.",
           "params": [
@@ -188,7 +241,7 @@
         "definition": {
           "entityName": "role_admin",
           "schema": {
-            "$ref": "#/backend/entities/User"
+            "$ref": "#/entities/User"
           },
           "description": "Indicates admin role. Existence of document grants admin privileges.",
           "params": [
@@ -200,6 +253,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to support the Bolão Alviverde application, focusing on user authentication, match management, result guessing, and ranking. It prioritizes authorization independence by avoiding hierarchical dependencies and denormalizing data where necessary. \n\n1.  **Users Collection (`/users/{userId}`):** Stores user profiles.  Authorization is path-based; only the user themselves can read/write their document. Admins have read access to all user documents.\n2.  **Matches Collection (`/matches/{matchId}`):** Stores match details. Admin-only write access.  All users have read access. Supports QAPs as all users can `list` all matches.\n3.  **Guesses Collection (`/users/{userId}/guesses/{guessId}`):** Stores user guesses for each match. Path-based ownership; only the user can manage their own guesses. This directly implements the User 1:N Guess relationship. Denormalization is not required here since guesses are owned by their parent user and are accessed via their ID.\n4.  **Admin Roles Collection (`/roles_admin/{userId}`):** A dedicated collection for storing admin roles. The *existence* of a document here grants admin privileges. No content is required. This supports QAPs as it simplifies the determination of admin status in security rules without needing to query user documents. It leverages \"Existence over Content\" for authorization.\n\nThis structure ensures Authorization Independence as the access to subcollections such as `/users/{userId}/guesses/{guessId}` relies on path-based ownership. The use of `/roles_admin/{userId}` collection enables admin role checks without requiring `get()` calls, simplifying security rules and enabling atomic operations.  QAPs are supported via structural segregation.  Matches are stored in a flat collection, enabling secure listing. Admin roles are also separate, avoiding filtering within user documents."
+    "reasoning": "The Firestore structure now includes a denormalized 'ranking' collection. 1. `/users/{userId}` remains for private user data, accessible only by the user owner or an admin. 2. `/ranking/{userId}` is a new public collection containing only the necessary data for the leaderboard (name, teamName, scores). This collection can be read by all authenticated users, solving the permission issues, while write access is restricted. 3. Data is duplicated from `users` to `ranking` upon user creation or modification to ensure consistency. 4. Other collections (`matches`, `guesses`, `roles_admin`) remain unchanged."
   }
 }

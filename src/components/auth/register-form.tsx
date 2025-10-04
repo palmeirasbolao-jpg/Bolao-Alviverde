@@ -64,7 +64,7 @@ export function RegisterForm() {
         
         const isAdmin = values.email === 'rodrigochampe82@gmail.com';
         
-        // Set user data in 'users' collection
+        // Set user data in private 'users' collection
         const userDocRef = doc(firestore, "users", user.uid);
         const userData = {
           id: user.uid,
@@ -75,6 +75,18 @@ export function RegisterForm() {
           isAdmin: isAdmin,
         };
         setDocumentNonBlocking(userDocRef, userData, { merge: true });
+
+        // Set public data in 'ranking' collection
+        const rankingDocRef = doc(firestore, "ranking", user.uid);
+        const rankingData = {
+          id: user.uid,
+          name: values.name,
+          teamName: values.teamName,
+          totalScore: 0,
+          monthlyScore: 0,
+          roundScore: 0,
+        };
+        setDocumentNonBlocking(rankingDocRef, rankingData, { merge: true });
         
         if (isAdmin) {
           const adminRoleDocRef = doc(firestore, "roles_admin", user.uid);
