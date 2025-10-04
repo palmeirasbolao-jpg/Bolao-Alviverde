@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import Link from "next/link";
+import Link from 'next/link';
 import {
   Sidebar,
   SidebarHeader,
@@ -12,21 +12,20 @@ import {
   SidebarSeparator,
   SidebarGroup,
   SidebarGroupLabel,
-} from "@/components/ui/sidebar";
-import { Landmark, LayoutDashboard, Swords, Trophy, Users } from "lucide-react";
-import { Logo } from "@/components/icons/logo";
-import { UserNav } from "./user-nav";
-import { useUser, useDoc, useMemoFirebase } from "@/firebase";
-import { doc, getFirestore } from "firebase/firestore";
+} from '@/components/ui/sidebar';
+import { Landmark, LayoutDashboard, Swords, Trophy, Users } from 'lucide-react';
+import { Logo } from '@/components/icons/logo';
+import { UserNav } from './user-nav';
+import { useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 export function AppSidebar() {
   const { user } = useUser();
-  const firestore = getFirestore();
-
+  
   const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
-    return doc(firestore, "users", user.uid);
-  }, [firestore, user]);
+    return doc(getFirestore(), "users", user.uid);
+  }, [user]);
 
   const { data: userData } = useDoc<{ isAdmin: boolean }>(userDocRef);
   const isAdmin = userData?.isAdmin ?? false;
@@ -41,18 +40,22 @@ export function AppSidebar() {
           <SidebarGroup>
             <SidebarGroupLabel>Jogador</SidebarGroupLabel>
             <SidebarMenuItem>
-              <Link href="/dashboard" legacyBehavior passHref>
-                <SidebarMenuButton tooltip="Palpites" isActive>
-                  <Swords />
-                  <span>Palpites</span>
+              <Link href="/dashboard" passHref>
+                <SidebarMenuButton asChild tooltip="Palpites" isActive>
+                  <a>
+                    <Swords />
+                    <span>Palpites</span>
+                  </a>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <Link href="/dashboard/ranking" legacyBehavior passHref>
-                <SidebarMenuButton tooltip="Ranking">
-                  <Trophy />
-                  <span>Ranking</span>
+              <Link href="/dashboard/ranking" passHref>
+                <SidebarMenuButton asChild tooltip="Ranking">
+                  <a>
+                    <Trophy />
+                    <span>Ranking</span>
+                  </a>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
@@ -64,26 +67,32 @@ export function AppSidebar() {
               <SidebarGroup>
                 <SidebarGroupLabel>Administrador</SidebarGroupLabel>
                 <SidebarMenuItem>
-                  <Link href="/admin" legacyBehavior passHref>
-                    <SidebarMenuButton tooltip="Dashboard">
-                      <LayoutDashboard />
-                      <span>Dashboard</span>
+                  <Link href="/admin" passHref>
+                    <SidebarMenuButton asChild tooltip="Dashboard">
+                      <a>
+                        <LayoutDashboard />
+                        <span>Dashboard</span>
+                      </a>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <Link href="/admin/matches" legacyBehavior passHref>
-                    <SidebarMenuButton tooltip="Gerenciar Partidas">
-                      <Landmark />
-                      <span>Partidas</span>
+                  <Link href="/admin/matches" passHref>
+                    <SidebarMenuButton asChild tooltip="Gerenciar Partidas">
+                      <a>
+                        <Landmark />
+                        <span>Partidas</span>
+                      </a>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <Link href="/admin/players" legacyBehavior passHref>
-                    <SidebarMenuButton tooltip="Gerenciar Jogadores">
-                      <Users />
-                      <span>Jogadores</span>
+                  <Link href="/admin/players" passHref>
+                    <SidebarMenuButton asChild tooltip="Gerenciar Jogadores">
+                      <a>
+                        <Users />
+                        <span>Jogadores</span>
+                      </a>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
