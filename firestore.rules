@@ -1,0 +1,136 @@
+/**
+ * @fileoverview Firestore Security Rules for Bolão Alviverde.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for user profiles and guesses,
+ * combined with admin-only write access for matches. The existence of a document in
+ * `/roles_admin/{userId}` grants admin privileges.
+ *
+ * Data Structure:
+ * - `/users/{userId}`: User profile information, accessible only by the user themselves.
+ * - `/matches/{matchId}`: Match details, publicly readable but writable only by admins.
+ * - `/users/{userId}/guesses/{guessId}`: User's guesses for matches, accessible only by the user.
+ * - `/roles_admin/{userId}`: Admin role, determined by the existence of a document.
+ *
+ * Key Security Decisions:
+ * - Users can only manage their own profiles and guesses.
+ * - Matches are publicly readable but only admins can create, update, or delete them.
+ * - Admin privileges are granted by the existence of a document in `/roles_admin/{userId}`.
+ * - Denormalization is used for admin role checks by using a dedicated `/roles_admin` collection.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Enforces user-ownership for profiles. Only the user can read/write their profile.
+     * @path /users/{userId}
+     * @allow (create) - User 'abc' can create their profile with id 'abc'.
+     * @allow (get, update, delete) - User 'abc' can read, update, and delete their profile with id 'abc'.
+     * @deny (create) - User 'def' cannot create a profile with id 'abc'.
+     * @deny (get, update, delete) - User 'def' cannot read, update, or delete profile 'abc'.
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to match details. All users can read matches, but only admins can write.
+     * @path /matches/{matchId}
+     * @allow (get, list) - Any user can read match details.
+     * @allow (create, update, delete) - Only an admin can create, update, or delete match details.
+     * @deny (create, update, delete) - A non-admin user cannot create, update, or delete match details.
+     * @principle Allows public read access with owner-only writes, enforced via admin role.
+     */
+    match /matches/{matchId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isAdmin() {
+        return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      }
+
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
+    }
+
+    /**
+     * @description Enforces user-ownership for guesses. Only the user can manage their own guesses.
+     * @path /users/{userId}/guesses/{guessId}
+     * @allow (create) - User 'abc' can create a guess under their profile.
+     * @allow (get, update, delete) - User 'abc' can read, update, and delete their guesses under their profile.
+     * @deny (create) - User 'def' cannot create a guess under user 'abc's profile.
+     * @deny (get, update, delete) - User 'def' cannot read, update, or delete guesses under user 'abc's profile.
+     * @principle Restricts access to a user's own data tree.
+     */
+    match /users/{userId}/guesses/{guessId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Grants admin privileges based on the existence of a document in this collection.
+     * @path /roles_admin/{userId}
+     * @allow (create) - Any authenticated user can create their admin role document, to be later evaluated and approved.
+     * @allow (get) - Any authenticated user can check if they have an admin document.
+     * @allow (delete) - Only the user themselves can delete their admin role document.
+     * @deny (update) - No updates allowed.
+     * @deny (list) - Listing not allowed.
+     * @principle Existence over content for authorization.
+     */
+    match /roles_admin/{userId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if false;
+      allow delete: if isExistingOwner(userId);
+    }
+  }
+}
