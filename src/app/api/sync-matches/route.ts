@@ -5,17 +5,19 @@
 // RAPIDAPI_HOST=api-football-v1.p.rapidapi.com
 
 import { NextResponse } from 'next/server';
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { initializeApp, getApps, App, deleteApp } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { ServiceAccount, cert } from 'firebase-admin/credential';
 
 // --- Helper Functions ---
 
 // Initialize Firebase Admin SDK
-function initializeFirebaseAdmin(): { db: Firestore } {
-  // Check if the app is already initialized
-  if (getApps().length) {
-    return { db: getFirestore() };
+function initializeFirebaseAdmin(): { db: Firestore; app: App } {
+  const appName = 'firebase-admin-app-sync-matches';
+  // Check if the app with this name is already initialized
+  const existingApp = getApps().find(app => app.name === appName);
+  if (existingApp) {
+    return { db: getFirestore(existingApp), app: existingApp };
   }
 
   // This environment variable is automatically set by Firebase App Hosting.
@@ -23,11 +25,11 @@ function initializeFirebaseAdmin(): { db: Firestore } {
     process.env.FIREBASE_CONFIG || '{}'
   ) as ServiceAccount;
 
-  initializeApp({
+  const newApp = initializeApp({
     credential: cert(serviceAccount),
-  });
+  }, appName);
 
-  return { db: getFirestore() };
+  return { db: getFirestore(newApp), app: newApp };
 }
 
 // --- API Handler ---
@@ -37,6 +39,7 @@ export async function POST() {
   const PALMEIRAS_TEAM_ID = 127; 
   const BRASILEIRAO_LEAGUE_ID = 71;
   const SEASON = new Date().getFullYear();
+  let adminApp: App | undefined;
 
   if (!RAPIDAPI_KEY || !RAPIDAPI_HOST) {
     return NextResponse.json(
@@ -65,7 +68,8 @@ export async function POST() {
     }
 
     // 2. Initialize Firebase Admin
-    const { db } = initializeFirebaseAdmin();
+    const { db, app } = initializeFirebaseAdmin();
+    adminApp = app;
 
     // 3. Process and save matches
     const matchesCol = db.collection('matches');
