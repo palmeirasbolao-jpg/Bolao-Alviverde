@@ -11,9 +11,12 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from "@/components/ui/sidebar";
-import { Landmark, LayoutDashboard, ShieldCheck, Swords, Trophy, Users } from "lucide-react";
+import { Landmark, LayoutDashboard, Swords, Trophy, Users } from "lucide-react";
 import { Logo } from "@/components/icons/logo";
 import { UserNav } from "./user-nav";
+
+// TODO: Replace with real authentication data
+const userRole = "player"; // or "admin"
 
 export function AppSidebar() {
   return (
@@ -42,34 +45,39 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuItem>
           </SidebarGroup>
-          <SidebarSeparator />
-          <SidebarGroup>
-            <SidebarGroupLabel>Administrador</SidebarGroupLabel>
-            <SidebarMenuItem>
-              <Link href="/admin" legacyBehavior passHref>
-                <SidebarMenuButton tooltip="Dashboard">
-                  <LayoutDashboard />
-                  <span>Dashboard</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <Link href="/admin/matches" legacyBehavior passHref>
-                <SidebarMenuButton tooltip="Gerenciar Partidas">
-                  <Landmark />
-                  <span>Partidas</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <Link href="/admin/players" legacyBehavior passHref>
-                <SidebarMenuButton tooltip="Gerenciar Jogadores">
-                  <Users />
-                  <span>Jogadores</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          </SidebarGroup>
+
+          {userRole === "admin" && (
+            <>
+              <SidebarSeparator />
+              <SidebarGroup>
+                <SidebarGroupLabel>Administrador</SidebarGroupLabel>
+                <SidebarMenuItem>
+                  <Link href="/admin" legacyBehavior passHref>
+                    <SidebarMenuButton tooltip="Dashboard">
+                      <LayoutDashboard />
+                      <span>Dashboard</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <Link href="/admin/matches" legacyBehavior passHref>
+                    <SidebarMenuButton tooltip="Gerenciar Partidas">
+                      <Landmark />
+                      <span>Partidas</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <Link href="/admin/players" legacyBehavior passHref>
+                    <SidebarMenuButton tooltip="Gerenciar Jogadores">
+                      <Users />
+                      <span>Jogadores</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              </SidebarGroup>
+            </>
+          )}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
