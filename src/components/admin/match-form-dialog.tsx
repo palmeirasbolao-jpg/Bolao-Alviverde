@@ -35,7 +35,6 @@ import { useFirestore } from '@/firebase';
 import {
   addDocumentNonBlocking,
   setDocumentNonBlocking,
-  updateDocumentNonBlocking,
 } from '@/firebase/non-blocking-updates';
 import {
   collection,
@@ -43,8 +42,6 @@ import {
   getDocs,
   query,
   runTransaction,
-  serverTimestamp,
-  where,
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Match } from '@/app/(app)/admin/matches/page';
@@ -106,30 +103,32 @@ export function MatchFormDialog({
     homeGuess: number,
     awayGuess: number
   ) => {
-    // Assuming home team is always Palmeiras
-    const palmeirasWon = homeResult > awayResult;
-    const userGuessedVictory = homeGuess > awayGuess;
-
-    // 3 pontos: Acertou o resultado exato da vitória do palmeiras
-    if (palmeirasWon && homeResult === homeGuess && awayResult === awayGuess) {
-      return 3;
+    // Regra 1: Acertou o resultado exato
+    if (homeResult === homeGuess && awayResult === awayGuess) {
+      return 12;
     }
 
-    // 2 pontos: acertou a vitória e os gols do palmeiras mas errou o resultado
-    if (palmeirasWon && userGuessedVictory && homeResult === homeGuess && awayResult !== awayGuess) {
-      return 2;
+    const resultPalmeirasWon = homeResult > awayResult;
+    const resultOtherTeamWon = homeResult < awayResult;
+    const resultDraw = homeResult === awayResult;
+
+    const guessPalmeirasWon = homeGuess > awayGuess;
+    const guessOtherTeamWon = homeGuess < awayGuess;
+    const guessDraw = homeGuess === awayGuess;
+
+    // Regra 2: Acertou o vencedor e o placar de um dos times
+    if ((resultPalmeirasWon && guessPalmeirasWon) || (resultOtherTeamWon && guessOtherTeamWon) || (resultDraw && guessDraw)) {
+        if(homeResult === homeGuess || awayResult === awayGuess) return 5;
     }
 
-    // 1 ponto: acertou a vitória e errou gols e placar
-    if (palmeirasWon && userGuessedVictory && (homeResult !== homeGuess || awayResult !== awayGuess)) {
-      return 1;
+    // Regra 3: Acertou apenas o vencedor
+    if ((resultPalmeirasWon && guessPalmeirasWon) || (resultOtherTeamWon && guessOtherTeamWon) || (resultDraw && guessDraw)) {
+        return 3;
     }
+    
+    // Regra 4: Acertou o número de gols de um dos times
+    if(homeResult === homeGuess || awayResult === awayGuess) return 1;
 
-    // 1 ponto: acertou gols palmeiras, mas empate ou derrota
-    const palmeirasDidNotWin = homeResult <= awayResult;
-    if (palmeirasDidNotWin && homeResult === homeGuess) {
-      return 1;
-    }
 
     return 0;
   };
@@ -139,27 +138,27 @@ export function MatchFormDialog({
     
     try {
       await runTransaction(firestore, async (transaction) => {
-        const usersSnapshot = await getDocs(collection(firestore, 'users'));
+        const usersQuerySnapshot = await getDocs(query(collection(firestore, 'users')));
         
-        for (const userDoc of usersSnapshot.docs) {
-          const guessDocRef = doc(firestore, 'users', userDoc.id, 'guesses', matchId);
+        for (const userDoc of usersQuerySnapshot.docs) {
+          const userId = userDoc.id;
+          const guessDocRef = doc(firestore, 'users', userId, 'guesses', matchId);
           const guessDoc = await transaction.get(guessDocRef);
 
           if (guessDoc.exists()) {
             const guessData = guessDoc.data();
-            const points = calculatePoints(finalHomeScore, finalAwayScore, guessData.homeTeamGuess, guessData.awayTeamGuess);
+            const oldPoints = guessData.pointsAwarded || 0;
+            const newPoints = calculatePoints(finalHomeScore, finalAwayScore, guessData.homeTeamGuess, guessData.awayTeamGuess);
             
-            // Update points for the guess
-            transaction.update(guessDocRef, { pointsAwarded: points });
+            if (oldPoints !== newPoints) {
+              transaction.update(guessDocRef, { pointsAwarded: newPoints });
 
-            // Update total user score
-            const userDocRef = doc(firestore, 'users', userDoc.id);
-            const currentUserDoc = await transaction.get(userDocRef);
-            if(currentUserDoc.exists()) {
-              const currentScore = currentUserDoc.data().initialScore || 0;
-              // This should be idempotent, so we subtract previous points if they exist
-              const previousPoints = guessData.pointsAwarded || 0;
-              transaction.update(userDocRef, { initialScore: currentScore - previousPoints + points });
+              const userDocRef = doc(firestore, 'users', userId);
+              // Firestore transactions require you to read before you write to the same doc.
+              const userSnapshot = await transaction.get(userDocRef);
+              const currentScore = userSnapshot.data()?.initialScore || 0;
+              const scoreDifference = newPoints - oldPoints;
+              transaction.update(userDocRef, { initialScore: currentScore + scoreDifference });
             }
           }
         }
@@ -168,12 +167,12 @@ export function MatchFormDialog({
         title: "Pontuações atualizadas!",
         description: "As pontuações de todos os jogadores foram calculadas e atualizadas.",
       });
-    } catch (e) {
+    } catch (e: any) {
       console.error("Transaction failed: ", e);
       toast({
         variant: "destructive",
         title: "Erro ao atualizar pontuações",
-        description: "Não foi possível calcular e atualizar as pontuações dos jogadores.",
+        description: e.message || "Não foi possível calcular e atualizar as pontuações dos jogadores.",
       });
     }
   }
@@ -188,29 +187,37 @@ export function MatchFormDialog({
     const matchData = {
       ...values,
       matchDateTime: values.matchDateTime.toISOString(),
-      ...(hasScore && { homeTeamScore: values.homeTeamScore, awayTeamScore: values.awayTeamScore }),
+      ...(hasScore ? { homeTeamScore: values.homeTeamScore, awayTeamScore: values.awayTeamScore } : {}),
     };
 
-    if (isEditing) {
-      const matchDocRef = doc(firestore, 'matches', match!.id);
-      setDocumentNonBlocking(matchDocRef, matchData, { merge: true });
+    try {
+        if (isEditing && match?.id) {
+            const matchDocRef = doc(firestore, 'matches', match.id);
+            await setDocumentNonBlocking(matchDocRef, matchData, { merge: true });
 
-      // If score was updated, trigger points calculation
-      if (hasScore) {
-        await processScoreUpdate(match!.id, values.homeTeamScore!, values.awayTeamScore!);
-      }
-    } else {
-      const matchesColRef = collection(firestore, 'matches');
-      await addDocumentNonBlocking(matchesColRef, matchData);
+            if (hasScore) {
+                await processScoreUpdate(match.id, values.homeTeamScore!, values.awayTeamScore!);
+            }
+             toast({
+                title: 'Partida atualizada!',
+                description: `A partida foi atualizada com sucesso.`,
+            });
+        } else {
+            const matchesColRef = collection(firestore, 'matches');
+            await addDocumentNonBlocking(matchesColRef, matchData);
+            toast({
+                title: 'Partida adicionada!',
+                description: 'A nova partida foi salva com sucesso.',
+            });
+        }
+    } catch (e: any) {
+        toast({
+            variant: "destructive",
+            title: `Erro ao salvar partida`,
+            description: e.message || "Ocorreu um erro.",
+        });
     }
-
-    toast({
-      title: `Partida ${isEditing ? 'atualizada' : 'adicionada'}!`,
-      description: `A partida foi ${
-        isEditing ? 'atualizada' : 'salva'
-      } com sucesso.`,
-    });
-
+    
     setIsLoading(false);
     onOpenChange(false);
   }
