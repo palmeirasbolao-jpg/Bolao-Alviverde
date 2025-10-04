@@ -30,10 +30,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
     }
 
     const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register');
+    const isLandingPage = pathname === '/';
 
     // Se o usuário não está logado
     if (!user) {
-      if (!isAuthRoute && pathname !== '/') {
+      if (!isAuthRoute && !isLandingPage) {
         router.replace('/login');
       }
       return;
@@ -51,12 +52,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
     if (pathname.startsWith('/admin') && !isAdmin) {
       // Se não for admin e tentar acessar /admin, redireciona
       router.replace('/dashboard');
-      return;
-    }
-
-    if (pathname.startsWith('/dashboard') && isAdmin) {
-      // Se for admin e tentar acessar /dashboard, redireciona para o painel de admin
-      router.replace('/admin');
       return;
     }
 
@@ -79,31 +74,30 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }
 
   // Permite acesso à landing page ou às páginas de autenticação se não estiver logado
+  const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register');
   if(pathname === '/' || (!user && isAuthRoute)) {
     return <>{children}</>;
   }
   
   // Se o usuário estiver logado, mas os dados ainda não carregaram (para evitar piscar), mostra loading
-  if(user && !userData && !pathname.startsWith('/admin')) {
-     if(isLoading) {
-        return (
-            <div className="flex h-screen w-full items-center justify-center">
-                <div className="space-y-4 w-1/2">
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-32 w-full" />
-                    <div className="flex gap-4">
-                    <Skeleton className="h-32 w-full" />
-                    <Skeleton className="h-32 w-full" />
-                    </div>
+  if(user && isLoading) {
+     return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <div className="space-y-4 w-1/2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-32 w-full" />
+                <div className="flex gap-4">
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-32 w-full" />
                 </div>
             </div>
-        )
-     }
+        </div>
+    )
   }
 
 
   // Se o usuário está logado e tem os dados necessários, mostra o conteúdo da página
-  if (user && (userData || pathname.startsWith('/admin'))) {
+  if (user && userData) {
     return <>{children}</>;
   }
 
