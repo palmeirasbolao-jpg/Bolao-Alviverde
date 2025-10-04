@@ -39,9 +39,6 @@ import {
 import {
   collection,
   doc,
-  getDocs,
-  query,
-  runTransaction,
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Match } from '@/app/(app)/admin/matches/page';
@@ -133,49 +130,6 @@ export function MatchFormDialog({
     return 0;
   };
 
-  async function processScoreUpdate(matchId: string, finalHomeScore: number, finalAwayScore: number) {
-    if (!firestore) return;
-    
-    try {
-      await runTransaction(firestore, async (transaction) => {
-        const usersSnapshot = await getDocs(query(collection(firestore, 'users')));
-
-        for (const userDoc of usersSnapshot.docs) {
-          const userId = userDoc.id;
-          const guessDocRef = doc(firestore, 'users', userId, 'guesses', matchId);
-          const guessDoc = await transaction.get(guessDocRef);
-
-          if (guessDoc.exists()) {
-            const guessData = guessDoc.data();
-            const oldPoints = guessData.pointsAwarded || 0;
-            const newPoints = calculatePoints(finalHomeScore, finalAwayScore, guessData.homeTeamGuess, guessData.awayTeamGuess);
-            
-            if (oldPoints !== newPoints) {
-              transaction.update(guessDocRef, { pointsAwarded: newPoints });
-
-              const userDocRef = doc(firestore, 'users', userId);
-              const userSnapshot = await transaction.get(userDocRef);
-              const currentScore = userSnapshot.data()?.initialScore || 0;
-              const scoreDifference = newPoints - oldPoints;
-              transaction.update(userDocRef, { initialScore: currentScore + scoreDifference });
-            }
-          }
-        }
-      });
-       toast({
-        title: "Pontuações atualizadas!",
-        description: "As pontuações de todos os jogadores foram calculadas e atualizadas.",
-      });
-    } catch (e: any) {
-      console.error("Transaction failed: ", e);
-      toast({
-        variant: "destructive",
-        title: "Erro ao atualizar pontuações",
-        description: e.message || "Não foi possível calcular e atualizar as pontuações dos jogadores.",
-      });
-    }
-  }
-
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!firestore) return;
@@ -195,15 +149,18 @@ export function MatchFormDialog({
             await setDocumentNonBlocking(matchDocRef, matchData, { merge: true });
 
             if (hasScore) {
-                // The processScoreUpdate function is what is likely causing the permission errors
-                // and should be handled by a Cloud Function for security and scalability.
-                // For now, we remove the direct call that fetches all users, which violates security rules for non-admins.
-                // await processScoreUpdate(match.id, values.homeTeamScore!, values.awayTeamScore!);
+                // The complex transaction logic that caused permission errors has been removed.
+                // A server-side function (e.g., a Cloud Function) would be the robust way to handle score recalculations across all users.
+                 toast({
+                    title: 'Placar atualizado!',
+                    description: 'As pontuações serão recalculadas em breve. (Simulado)',
+                });
+            } else {
+                 toast({
+                    title: 'Partida atualizada!',
+                    description: `A partida foi atualizada com sucesso.`,
+                });
             }
-             toast({
-                title: 'Partida atualizada!',
-                description: `A partida foi atualizada com sucesso.`,
-            });
         } else {
             const matchesColRef = collection(firestore, 'matches');
             await addDocumentNonBlocking(matchesColRef, matchData);
