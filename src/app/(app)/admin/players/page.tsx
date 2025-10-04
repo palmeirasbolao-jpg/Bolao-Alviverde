@@ -130,7 +130,7 @@ export default function AdminPlayersPage() {
                           src={`https://picsum.photos/seed/p${player.id}/100/100`}
                         />
                         <AvatarFallback>
-                          {player.name ? player.name.charAt(0).toUpperCase() : player.email.charAt(0).toUpperCase()}
+                          {(player.name || player.email || 'U').charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <span>{player.name}</span>
