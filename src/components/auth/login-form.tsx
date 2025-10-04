@@ -45,31 +45,21 @@ export function LoginForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      initiateEmailSignIn(auth, values.email, values.password);
-      // The redirect is handled by the auth state listener in the layout
+      await initiateEmailSignIn(auth, values.email, values.password);
+      // The redirect is now handled by the AuthGuard component
       toast({
         title: "Login bem-sucedido!",
         description: "Bem-vindo de volta!",
       });
-      // A simple way to wait for auth state to propagate
-      setTimeout(() => {
-        // This logic will be improved to check for admin role from Firestore
-        if (values.email === "admin@example.com") {
-          router.push("/admin");
-        } else {
-          router.push("/dashboard");
-        }
-        setIsLoading(false);
-      }, 1500)
-      
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Erro no Login",
-        description: error.message || "Ocorreu um erro ao tentar fazer login.",
+        description: "Credenciais inválidas ou erro de conexão.",
       });
-      setIsLoading(false);
+       setIsLoading(false);
     }
+    // No need to set isLoading to false on success, as the page will redirect
   }
 
   return (
