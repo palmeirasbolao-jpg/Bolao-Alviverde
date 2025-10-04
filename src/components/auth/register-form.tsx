@@ -18,10 +18,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useAuth, useFirestore, setDocumentNonBlocking } from "@/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc } from "firebase/firestore";
 
 const formSchema = z.object({
+  name: z.string().min(3, {
+    message: "O nome deve ter pelo menos 3 caracteres.",
+  }),
   email: z.string().email({
     message: "Por favor, insira um e-mail válido.",
   }),
@@ -43,6 +46,7 @@ export function RegisterForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      name: "",
       email: "",
       password: "",
       teamName: "",
@@ -56,10 +60,13 @@ export function RegisterForm() {
       const user = userCredential.user;
 
       if (user) {
+        await updateProfile(user, { displayName: values.name });
+        
         const userDocRef = doc(firestore, "users", user.uid);
         const isAdmin = values.email === 'rodrigochampe82@gmail.com';
         const userData = {
           id: user.uid,
+          name: values.name,
           email: values.email,
           teamName: values.teamName,
           initialScore: 0,
@@ -93,6 +100,19 @@ export function RegisterForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+         <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Nome Completo</FormLabel>
+              <FormControl>
+                <Input placeholder="Seu Nome" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <FormField
           control={form.control}
           name="teamName"

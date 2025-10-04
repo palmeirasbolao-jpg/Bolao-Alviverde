@@ -1,0 +1,205 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Bolão Alviverde application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "teamName": {
+          "type": "string",
+          "description": "The name of the team chosen by the user."
+        },
+        "initialScore": {
+          "type": "number",
+          "description": "The initial score of the user."
+        },
+        "isAdmin": {
+          "type": "boolean",
+          "description": "Indicates if the user is an administrator."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "teamName",
+        "initialScore",
+        "isAdmin"
+      ]
+    },
+    "Match": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Match",
+      "type": "object",
+      "description": "Represents a Palmeiras match.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the match."
+        },
+        "matchDateTime": {
+          "type": "string",
+          "description": "Date and time of the match.",
+          "format": "date-time"
+        },
+        "homeTeam": {
+          "type": "string",
+          "description": "The home team for the match (assumed to be Palmeiras)."
+        },
+        "awayTeam": {
+          "type": "string",
+          "description": "The away team for the match."
+        },
+        "homeTeamScore": {
+          "type": "number",
+          "description": "The score of the home team."
+        },
+        "awayTeamScore": {
+          "type": "number",
+          "description": "The score of the away team."
+        }
+      },
+      "required": [
+        "id",
+        "matchDateTime",
+        "homeTeam",
+        "awayTeam",
+        "homeTeamScore",
+        "awayTeamScore"
+      ]
+    },
+    "Guess": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Guess",
+      "type": "object",
+      "description": "Represents a user's guess for a match.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the guess."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Guess)"
+        },
+        "matchId": {
+          "type": "string",
+          "description": "Reference to Match. (Relationship: Match 1:N Guess)"
+        },
+        "homeTeamGuess": {
+          "type": "number",
+          "description": "The user's predicted score for the home team."
+        },
+        "awayTeamGuess": {
+          "type": "number",
+          "description": "The user's predicted score for the away team."
+        },
+        "pointsAwarded": {
+          "type": "number",
+          "description": "Points awarded for this guess."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "matchId",
+        "homeTeamGuess",
+        "awayTeamGuess",
+        "pointsAwarded"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles.  Only the user or an admin can read/write their profile. Includes user ID as the document ID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/matches/{matchId}",
+        "definition": {
+          "entityName": "Match",
+          "schema": {
+            "$ref": "#/backend/entities/Match"
+          },
+          "description": "Stores match details. Admin-only write; all users can read.",
+          "params": [
+            {
+              "name": "matchId",
+              "description": "The unique identifier for the match."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/guesses/{guessId}",
+        "definition": {
+          "entityName": "Guess",
+          "schema": {
+            "$ref": "#/backend/entities/Guess"
+          },
+          "description": "Stores user guesses for each match. Path-based ownership: only the user can manage their own guesses.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "guessId",
+              "description": "The unique identifier for the guess."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{userId}",
+        "definition": {
+          "entityName": "role_admin",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Indicates admin role. Existence of document grants admin privileges.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support the Bolão Alviverde application, focusing on user authentication, match management, result guessing, and ranking. It prioritizes authorization independence by avoiding hierarchical dependencies and denormalizing data where necessary. \n\n1.  **Users Collection (`/users/{userId}`):** Stores user profiles.  Authorization is path-based; only the user themselves can read/write their document. Admins have read access to all user documents.\n2.  **Matches Collection (`/matches/{matchId}`):** Stores match details. Admin-only write access.  All users have read access. Supports QAPs as all users can `list` all matches.\n3.  **Guesses Collection (`/users/{userId}/guesses/{guessId}`):** Stores user guesses for each match. Path-based ownership; only the user can manage their own guesses. This directly implements the User 1:N Guess relationship. Denormalization is not required here since guesses are owned by their parent user and are accessed via their ID.\n4.  **Admin Roles Collection (`/roles_admin/{userId}`):** A dedicated collection for storing admin roles. The *existence* of a document here grants admin privileges. No content is required. This supports QAPs as it simplifies the determination of admin status in security rules without needing to query user documents. It leverages \"Existence over Content\" for authorization.\n\nThis structure ensures Authorization Independence as the access to subcollections such as `/users/{userId}/guesses/{guessId}` relies on path-based ownership. The use of `/roles_admin/{userId}` collection enables admin role checks without requiring `get()` calls, simplifying security rules and enabling atomic operations.  QAPs are supported via structural segregation.  Matches are stored in a flat collection, enabling secure listing. Admin roles are also separate, avoiding filtering within user documents."
+  }
+}

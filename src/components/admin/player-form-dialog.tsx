@@ -27,7 +27,7 @@ import {
   useFirestore,
   setDocumentNonBlocking,
 } from '@/firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -35,6 +35,9 @@ import { Switch } from '../ui/switch';
 import type { Player } from '@/app/(app)/admin/players/page';
 
 const formSchema = z.object({
+  name: z.string().min(3, {
+    message: 'O nome deve ter pelo menos 3 caracteres.',
+  }),
   email: z.string().email({
     message: 'Por favor, insira um e-mail válido.',
   }),
@@ -66,6 +69,7 @@ export function PlayerFormDialog({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      name: '',
       email: '',
       password: '',
       teamName: '',
@@ -78,6 +82,7 @@ export function PlayerFormDialog({
     if (isOpen) {
       if (isEditing && player) {
         form.reset({
+          name: player.name,
           email: player.email,
           teamName: player.teamName,
           initialScore: player.initialScore,
@@ -86,6 +91,7 @@ export function PlayerFormDialog({
         });
       } else {
         form.reset({
+          name: '',
           email: '',
           password: '',
           teamName: '',
@@ -105,6 +111,7 @@ export function PlayerFormDialog({
         // Editing existing player
         const userDocRef = doc(firestore, 'users', player.id);
         const userData = {
+          name: values.name,
           email: values.email,
           teamName: values.teamName,
           initialScore: values.initialScore,
@@ -126,7 +133,7 @@ export function PlayerFormDialog({
         
         toast({
           title: 'Jogador atualizado!',
-          description: `Os dados de ${values.email} foram salvos.`,
+          description: `Os dados de ${values.name} foram salvos.`,
         });
 
       } else {
@@ -149,9 +156,11 @@ export function PlayerFormDialog({
         const user = userCredential.user;
 
         if (user) {
+          await updateProfile(user, { displayName: values.name });
           const userDocRef = doc(firestore, 'users', user.uid);
           const userData = {
             id: user.uid,
+            name: values.name,
             email: values.email,
             teamName: values.teamName,
             initialScore: values.initialScore,
@@ -170,7 +179,7 @@ export function PlayerFormDialog({
         }
         toast({
           title: 'Jogador adicionado!',
-          description: `O jogador ${values.email} foi criado com sucesso.`,
+          description: `O jogador ${values.name} foi criado com sucesso.`,
         });
       }
       onOpenChange(false);
@@ -202,6 +211,19 @@ export function PlayerFormDialog({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nome</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Nome do Jogador" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
               name="teamName"
               render={({ field }) => (
                 <FormItem>
@@ -220,8 +242,11 @@ export function PlayerFormDialog({
                 <FormItem>
                   <FormLabel>E-mail</FormLabel>
                   <FormControl>
-                    <Input placeholder="jogador@email.com" {...field} />
+                    <Input placeholder="jogador@email.com" {...field} disabled={isEditing} />
                   </FormControl>
+                   <FormDescription>
+                    O e-mail não pode ser alterado após a criação.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

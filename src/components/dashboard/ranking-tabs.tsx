@@ -15,6 +15,7 @@ import { collection, query, where, orderBy } from 'firebase/firestore';
 
 type Player = {
   id: string;
+  name: string;
   email: string;
   teamName: string;
   initialScore: number;
@@ -77,9 +78,9 @@ export function RankingTabs() {
                   <AvatarImage
                     src={`https://picsum.photos/seed/${player.id}/100/100`}
                   />
-                  <AvatarFallback>{player.email.charAt(0).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback>{player.name ? player.name.charAt(0).toUpperCase() : player.email.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <span>{player.email}</span>
+                <span>{player.name}</span>
               </div>
             </TableCell>
             <TableCell>{player.teamName}</TableCell>

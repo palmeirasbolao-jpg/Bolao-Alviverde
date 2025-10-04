@@ -38,6 +38,7 @@ import { PlayerFormDialog } from '@/components/admin/player-form-dialog';
 
 export type Player = {
   id: string;
+  name: string;
   email: string;
   teamName: string;
   initialScore: number;
@@ -132,10 +133,10 @@ export default function AdminPlayersPage() {
                           src={`https://picsum.photos/seed/p${player.id}/100/100`}
                         />
                         <AvatarFallback>
-                          {player.email.charAt(0).toUpperCase()}
+                          {player.name ? player.name.charAt(0).toUpperCase() : player.email.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <span>{player.email}</span>
+                      <span>{player.name}</span>
                     </div>
                   </TableCell>
                   <TableCell>{player.teamName}</TableCell>
