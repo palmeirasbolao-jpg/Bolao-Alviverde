@@ -147,7 +147,7 @@ export async function POST() {
             guessesSnapshot.forEach(doc => {
                 totalPoints += doc.data().pointsAwarded || 0;
             });
-            usersBatch.update(userRef, { initialScore: totalPoints });
+            usersBatch.update(userRef, { totalScore: totalPoints });
         }
         await usersBatch.commit();
       }

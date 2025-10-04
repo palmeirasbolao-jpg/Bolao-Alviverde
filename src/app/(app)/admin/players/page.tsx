@@ -40,7 +40,7 @@ export type Player = {
   name: string;
   email: string;
   teamName: string;
-  initialScore: number;
+  totalScore: number;
   isAdmin: boolean;
 };
 
@@ -149,7 +149,7 @@ export default function AdminPlayersPage() {
                   </TableCell>
                   <TableCell>{player.teamName}</TableCell>
                   <TableCell className="text-right font-bold">
-                    {player.initialScore}
+                    {player.totalScore}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>

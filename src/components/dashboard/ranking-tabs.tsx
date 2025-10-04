@@ -18,7 +18,7 @@ type Player = {
   name: string;
   email: string;
   teamName: string;
-  initialScore: number;
+  totalScore: number;
   isAdmin: boolean;
 };
 
@@ -30,7 +30,7 @@ export function RankingTabs() {
       firestore
         ? query(
             collection(firestore, 'users'),
-            orderBy('initialScore', 'desc'),
+            orderBy('totalScore', 'desc'),
           )
         : null,
     [firestore]
@@ -85,7 +85,7 @@ export function RankingTabs() {
               </div>
             </TableCell>
             <TableCell>{player.teamName}</TableCell>
-            <TableCell className="text-right text-lg">{player.initialScore}</TableCell>
+            <TableCell className="text-right text-lg">{player.totalScore}</TableCell>
           </TableRow>
         ))}
       </TableBody>

@@ -69,7 +69,7 @@ export function RegisterForm() {
           name: values.name,
           email: values.email,
           teamName: values.teamName,
-          initialScore: 0,
+          totalScore: 0,
           isAdmin: isAdmin,
         };
         setDocumentNonBlocking(userDocRef, userData, { merge: true });

@@ -46,7 +46,7 @@ const formSchema = z.object({
   teamName: z.string().min(3, {
     message: 'O nome do time deve ter pelo menos 3 caracteres.',
   }),
-  initialScore: z.coerce.number().min(0, 'A pontuação não pode ser negativa.'),
+  totalScore: z.coerce.number().min(0, 'A pontuação não pode ser negativa.'),
   isAdmin: z.boolean().default(false),
 });
 
@@ -74,7 +74,7 @@ export function PlayerFormDialog({
       email: '',
       password: '',
       teamName: '',
-      initialScore: 0,
+      totalScore: 0,
       isAdmin: false,
     },
   });
@@ -86,7 +86,7 @@ export function PlayerFormDialog({
           name: player.name || '',
           email: player.email || '',
           teamName: player.teamName || '',
-          initialScore: player.initialScore || 0,
+          totalScore: player.totalScore || 0,
           isAdmin: player.isAdmin || false,
           password: '', // Password is not fetched, leave empty
         });
@@ -96,7 +96,7 @@ export function PlayerFormDialog({
           email: '',
           password: '',
           teamName: '',
-          initialScore: 0,
+          totalScore: 0,
           isAdmin: false,
         });
       }
@@ -115,7 +115,7 @@ export function PlayerFormDialog({
           name: values.name,
           email: values.email,
           teamName: values.teamName,
-          initialScore: values.initialScore,
+          totalScore: values.totalScore,
           isAdmin: values.isAdmin,
         };
         setDocumentNonBlocking(userDocRef, userData, { merge: true });
@@ -164,7 +164,7 @@ export function PlayerFormDialog({
             name: values.name,
             email: values.email,
             teamName: values.teamName,
-            initialScore: values.initialScore,
+            totalScore: values.totalScore,
             isAdmin: values.isAdmin,
           };
           setDocumentNonBlocking(userDocRef, userData, { merge: true });
@@ -254,7 +254,7 @@ export function PlayerFormDialog({
             />
              <FormField
               control={form.control}
-              name="initialScore"
+              name="totalScore"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Pontuação</FormLabel>

@@ -23,9 +23,9 @@
           "type": "string",
           "description": "The name of the team chosen by the user."
         },
-        "initialScore": {
+        "totalScore": {
           "type": "number",
-          "description": "The initial score of the user."
+          "description": "The total score of the user."
         },
         "isAdmin": {
           "type": "boolean",
@@ -37,7 +37,7 @@
         "name",
         "email",
         "teamName",
-        "initialScore",
+        "totalScore",
         "isAdmin"
       ]
     },
