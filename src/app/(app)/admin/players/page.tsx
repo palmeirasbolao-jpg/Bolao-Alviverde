@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { MoreHorizontal, Pen, PlusCircle, Trash } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, doc, where } from 'firebase/firestore';
+import { collection, query, doc } from 'firebase/firestore';
 import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -35,13 +35,14 @@ import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { PlayerFormDialog } from '@/components/admin/player-form-dialog';
 
+// This now refers to the public ranking profile
 export type Player = {
   id: string;
   name: string;
-  email: string;
+  email?: string; // Email might not be in ranking, so it's optional
   teamName: string;
   totalScore: number;
-  isAdmin: boolean;
+  isAdmin?: boolean; // isAdmin might not be in ranking, so it's optional
 };
 
 export default function AdminPlayersPage() {
@@ -50,14 +51,15 @@ export default function AdminPlayersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
-  const usersQuery = useMemoFirebase(
+  // Query the public 'ranking' collection now
+  const playersQuery = useMemoFirebase(
     () =>
       firestore
-        ? query(collection(firestore, 'users'), where('isAdmin', '==', false))
+        ? query(collection(firestore, 'ranking'))
         : null,
     [firestore]
   );
-  const { data: players, isLoading } = useCollection<Player>(usersQuery);
+  const { data: players, isLoading } = useCollection<Player>(playersQuery);
 
   const handleAddClick = () => {
     setSelectedPlayer(null);
