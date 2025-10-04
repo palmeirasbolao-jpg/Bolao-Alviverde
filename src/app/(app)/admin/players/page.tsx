@@ -9,11 +9,30 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, Trash } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, doc } from 'firebase/firestore';
 import { Card } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useToast } from '@/hooks/use-toast';
 
 type Player = {
   id: string;
@@ -25,11 +44,26 @@ type Player = {
 
 export default function AdminPlayersPage() {
   const firestore = useFirestore();
+  const { toast } = useToast();
   const usersQuery = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'users')) : null),
     [firestore]
   );
   const { data: players, isLoading } = useCollection<Player>(usersQuery);
+
+  const handleDelete = (playerId: string) => {
+    if (!firestore) return;
+    const playerDocRef = doc(firestore, 'users', playerId);
+    deleteDocumentNonBlocking(playerDocRef);
+    // Also remove from roles_admin if they are an admin
+    const adminRoleDocRef = doc(firestore, 'roles_admin', playerId);
+    deleteDocumentNonBlocking(adminRoleDocRef);
+    
+    toast({
+      title: 'Jogador removido',
+      description: 'O jogador foi removido com sucesso.',
+    });
+  };
 
   return (
     <div className="container mx-auto">
@@ -39,10 +73,9 @@ export default function AdminPlayersPage() {
             Gerenciar Jogadores
           </h1>
           <p className="text-muted-foreground">
-            Adicione, edite e visualize os participantes do bolão.
+            Visualize e remova os participantes do bolão.
           </p>
         </div>
-        <Button>Adicionar Jogador</Button>
       </div>
 
       <Card>
@@ -89,9 +122,35 @@ export default function AdminPlayersPage() {
                   {player.initialScore}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                            <Trash className="mr-2 h-4 w-4" />
+                            Remover
+                          </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Essa ação não pode ser desfeita. Isso irá remover permanentemente o jogador e todos os seus dados.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(player.id)}>Remover</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}
