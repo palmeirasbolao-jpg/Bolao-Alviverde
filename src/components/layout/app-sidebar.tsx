@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   Sidebar,
@@ -14,11 +16,21 @@ import {
 import { Landmark, LayoutDashboard, Swords, Trophy, Users } from "lucide-react";
 import { Logo } from "@/components/icons/logo";
 import { UserNav } from "./user-nav";
-
-// TODO: Replace with real authentication data
-const userRole = "player"; // or "admin"
+import { useUser, useDoc, useMemoFirebase } from "@/firebase";
+import { doc, getFirestore } from "firebase/firestore";
 
 export function AppSidebar() {
+  const { user } = useUser();
+  const firestore = getFirestore();
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, "users", user.uid);
+  }, [firestore, user]);
+
+  const { data: userData } = useDoc<{ isAdmin: boolean }>(userDocRef);
+  const isAdmin = userData?.isAdmin ?? false;
+
   return (
     <Sidebar>
       <SidebarHeader>
@@ -46,7 +58,7 @@ export function AppSidebar() {
             </SidebarMenuItem>
           </SidebarGroup>
 
-          {userRole === "admin" && (
+          {isAdmin && (
             <>
               <SidebarSeparator />
               <SidebarGroup>

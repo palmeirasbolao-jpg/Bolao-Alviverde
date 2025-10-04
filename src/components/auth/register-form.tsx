@@ -17,6 +17,9 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useAuth, useFirestore, setDocumentNonBlocking } from "@/firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc } from "firebase/firestore";
 
 const formSchema = z.object({
   email: z.string().email({
@@ -34,6 +37,8 @@ export function RegisterForm() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const auth = useAuth();
+  const firestore = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -44,18 +49,39 @@ export function RegisterForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    // Mock registration logic
-    console.log(values);
-    setTimeout(() => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const user = userCredential.user;
+
+      if (user) {
+        const userDocRef = doc(firestore, "users", user.uid);
+        const userData = {
+          id: user.uid,
+          email: values.email,
+          teamName: values.teamName,
+          initialScore: 0, // Default to 0
+          isAdmin: false, // Default to false
+        };
+        setDocumentNonBlocking(userDocRef, userData, { merge: true });
+      }
+
       toast({
         title: "Cadastro realizado com sucesso!",
         description: "Você já pode fazer login.",
       });
       router.push("/login");
+
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro no Cadastro",
+        description: error.message || "Ocorreu um erro ao tentar se cadastrar.",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   }
 
   return (

@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useAuth, initiateEmailSignIn } from "@/firebase";
 
 const formSchema = z.object({
   email: z.string().email({
@@ -31,6 +32,7 @@ export function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const auth = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -40,21 +42,34 @@ export function LoginForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    // Mock login logic
-    setTimeout(() => {
-      if (values.email === "admin@example.com") {
-        router.push("/admin");
-      } else {
-        router.push("/dashboard");
-      }
+    try {
+      initiateEmailSignIn(auth, values.email, values.password);
+      // The redirect is handled by the auth state listener in the layout
       toast({
         title: "Login bem-sucedido!",
         description: "Bem-vindo de volta!",
       });
+      // A simple way to wait for auth state to propagate
+      setTimeout(() => {
+        // This logic will be improved to check for admin role from Firestore
+        if (values.email === "admin@example.com") {
+          router.push("/admin");
+        } else {
+          router.push("/dashboard");
+        }
+        setIsLoading(false);
+      }, 1500)
+      
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro no Login",
+        description: error.message || "Ocorreu um erro ao tentar fazer login.",
+      });
       setIsLoading(false);
-    }, 1000);
+    }
   }
 
   return (
