@@ -1,19 +1,14 @@
 'use client';
-import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { GuessCard } from '@/components/dashboard/guess-card';
 
 type Match = {
   id: string;
@@ -24,14 +19,38 @@ type Match = {
   awayTeamScore?: number;
 };
 
+type Guess = {
+  id: string; // Corresponds to matchId
+  homeTeamGuess: number;
+  awayTeamGuess: number;
+  pointsAwarded: number;
+};
+
 export default function DashboardPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const matchesQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'matches')) : null),
+    () =>
+      firestore
+        ? query(collection(firestore, 'matches'), orderBy('matchDateTime', 'desc'))
+        : null,
     [firestore]
   );
-  const { data: matches, isLoading } = useCollection<Match>(matchesQuery);
+  const { data: matches, isLoading: isLoadingMatches } = useCollection<Match>(matchesQuery);
+  
+  const guessesQuery = useMemoFirebase(
+    () => (firestore && user ? query(collection(firestore, 'users', user.uid, 'guesses')) : null),
+    [firestore, user]
+  );
+  const { data: guesses, isLoading: isLoadingGuesses } = useCollection<Guess>(guessesQuery);
+  
+  const guessesMap = useMemoFirebase(() => 
+    guesses?.reduce((acc, guess) => {
+      acc[guess.id] = guess;
+      return acc;
+    }, {} as Record<string, Guess>)
+  , [guesses]);
 
   const getMatchStatus = (match: Match) => {
     const isFinished =
@@ -41,9 +60,14 @@ export default function DashboardPage() {
   };
 
   const upcomingMatches =
-    matches?.filter((match) => getMatchStatus(match) === 'scheduled') ?? [];
+    matches
+      ?.filter((match) => getMatchStatus(match) === 'scheduled')
+      .sort((a, b) => new Date(a.matchDateTime).getTime() - new Date(b.matchDateTime).getTime()) ?? [];
+
   const finishedMatches =
     matches?.filter((match) => getMatchStatus(match) === 'finished') ?? [];
+
+  const isLoading = isLoadingMatches || isLoadingGuesses;
 
   return (
     <div className="container mx-auto">
@@ -60,42 +84,10 @@ export default function DashboardPage() {
             Próximas Partidas
           </h2>
           {isLoading && <p>Carregando partidas...</p>}
+          {!isLoading && upcomingMatches.length === 0 && <p>Nenhuma partida agendada no momento.</p>}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {upcomingMatches.map((match) => (
-              <Card key={match.id}>
-                <CardHeader>
-                  <CardTitle className="flex justify-between items-center text-lg">
-                    <span>
-                      {match.homeTeam} vs {match.awayTeam}
-                    </span>
-                  </CardTitle>
-                  <CardDescription>
-                    {format(new Date(match.matchDateTime), "dd 'de' MMMM 'às' HH:mm", {
-                      locale: ptBR,
-                    })}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center justify-center gap-4">
-                  <Input
-                    type="number"
-                    min="0"
-                    className="w-16 text-center text-2xl font-bold"
-                    placeholder="0"
-                  />
-                  <span className="text-2xl font-bold text-muted-foreground">
-                    x
-                  </span>
-                  <Input
-                    type="number"
-                    min="0"
-                    className="w-16 text-center text-2xl font-bold"
-                    placeholder="0"
-                  />
-                </CardContent>
-                <CardFooter>
-                  <Button className="w-full font-bold">Salvar Palpite</Button>
-                </CardFooter>
-              </Card>
+              <GuessCard key={match.id} match={match} initialGuess={guessesMap?.[match.id]} />
             ))}
           </div>
         </section>
@@ -107,29 +99,39 @@ export default function DashboardPage() {
             Resultados Anteriores
           </h2>
           {isLoading && <p>Carregando resultados...</p>}
+           {!isLoading && finishedMatches.length === 0 && <p>Nenhum resultado anterior.</p>}
           <div className="space-y-4">
-            {finishedMatches.map((match) => (
-              <Card key={match.id} className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    {format(new Date(match.matchDateTime), 'dd/MM/yyyy', {
-                      locale: ptBR,
-                    })}
+            {finishedMatches.map((match) => {
+              const userGuess = guessesMap?.[match.id];
+              return (
+                <Card key={match.id} className="p-4">
+                  <div className="grid grid-cols-3 items-center text-center sm:grid-cols-4">
+                    <div className="text-sm text-muted-foreground text-left sm:text-center">
+                      {format(new Date(match.matchDateTime), 'dd/MM/yy', {
+                        locale: ptBR,
+                      })}
+                    </div>
+                    <div className="flex items-center justify-center gap-2 font-bold text-base sm:gap-4 sm:text-lg">
+                      <span>{match.homeTeam}</span>
+                      <span className="text-primary">{match.homeTeamScore}</span>
+                      <span>x</span>
+                      <span className="text-primary">{match.awayTeamScore}</span>
+                      <span>{match.awayTeam}</span>
+                    </div>
+                    
+                    <div className="text-sm text-muted-foreground">
+                      Seu palpite: {userGuess ? `${userGuess.homeTeamGuess} x ${userGuess.awayTeamGuess}` : 'N/A'}
+                    </div>
+
+                    {userGuess && (typeof userGuess.pointsAwarded === 'number') && (
+                       <div className="text-sm text-green-600 font-bold justify-self-end">
+                        +{userGuess.pointsAwarded} Pontos
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-4 font-bold text-lg">
-                    <span>{match.homeTeam}</span>
-                    <span className="text-primary">{match.homeTeamScore}</span>
-                    <span>x</span>
-                    <span className="text-primary">{match.awayTeamScore}</span>
-                    <span>{match.awayTeam}</span>
-                  </div>
-                  {/* This part needs guess data to be implemented */}
-                  <div className="text-sm text-green-600 font-bold">
-                    +5 Pontos
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              )
+            })}
           </div>
         </section>
       </div>
