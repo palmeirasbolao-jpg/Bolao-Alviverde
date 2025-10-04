@@ -28,9 +28,6 @@ const formSchema = z.object({
   teamName: z.string().min(3, {
     message: "O nome do time deve ter pelo menos 3 caracteres.",
   }),
-  initialScore: z.coerce.number().int().nonnegative({
-    message: "A pontuação inicial deve ser um número positivo.",
-  }).optional(),
 });
 
 export function RegisterForm() {
@@ -44,7 +41,6 @@ export function RegisterForm() {
       email: "",
       password: "",
       teamName: "",
-      initialScore: 0,
     },
   });
 
@@ -99,19 +95,6 @@ export function RegisterForm() {
               <FormLabel>Senha</FormLabel>
               <FormControl>
                 <Input type="password" placeholder="••••••••" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="initialScore"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Pontuação Inicial (opcional)</FormLabel>
-              <FormControl>
-                <Input type="number" placeholder="0" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
