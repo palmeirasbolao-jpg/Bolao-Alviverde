@@ -35,8 +35,17 @@ import { useFirestore } from '@/firebase';
 import {
   addDocumentNonBlocking,
   setDocumentNonBlocking,
+  updateDocumentNonBlocking,
 } from '@/firebase/non-blocking-updates';
-import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  runTransaction,
+  serverTimestamp,
+  where,
+} from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Match } from '@/app/(app)/admin/matches/page';
 
@@ -91,18 +100,98 @@ export function MatchFormDialog({
     }
   }, [match, form]);
 
+  const calculatePoints = (
+    homeResult: number,
+    awayResult: number,
+    homeGuess: number,
+    awayGuess: number
+  ) => {
+    // Exact score
+    if (homeResult === homeGuess && awayResult === awayGuess) {
+      return 10;
+    }
+
+    const resultWinner = homeResult > awayResult ? 'home' : homeResult < awayResult ? 'away' : 'draw';
+    const guessWinner = homeGuess > awayGuess ? 'home' : homeGuess < awayGuess ? 'away' : 'draw';
+    
+    // Guessed winner and goal difference
+    if (resultWinner === guessWinner && resultWinner !== 'draw' && (homeResult - awayResult === homeGuess - awayGuess)) {
+      return 5;
+    }
+    
+    // Guessed winner or guessed a draw (but not exact score)
+    if (resultWinner === guessWinner) {
+      return 3;
+    }
+
+    return 0;
+  };
+
+  async function processScoreUpdate(matchId: string, finalHomeScore: number, finalAwayScore: number) {
+    if (!firestore) return;
+    
+    try {
+      await runTransaction(firestore, async (transaction) => {
+        const usersSnapshot = await getDocs(collection(firestore, 'users'));
+        
+        for (const userDoc of usersSnapshot.docs) {
+          const guessDocRef = doc(firestore, 'users', userDoc.id, 'guesses', matchId);
+          const guessDoc = await transaction.get(guessDocRef);
+
+          if (guessDoc.exists()) {
+            const guessData = guessDoc.data();
+            const points = calculatePoints(finalHomeScore, finalAwayScore, guessData.homeTeamGuess, guessData.awayTeamGuess);
+            
+            // Update points for the guess
+            transaction.update(guessDocRef, { pointsAwarded: points });
+
+            // Update total user score
+            const userDocRef = doc(firestore, 'users', userDoc.id);
+            const currentUserDoc = await transaction.get(userDocRef);
+            if(currentUserDoc.exists()) {
+              const currentScore = currentUserDoc.data().initialScore || 0;
+              // This should be idempotent, so we subtract previous points if they exist
+              const previousPoints = guessData.pointsAwarded || 0;
+              transaction.update(userDocRef, { initialScore: currentScore - previousPoints + points });
+            }
+          }
+        }
+      });
+       toast({
+        title: "Pontuações atualizadas!",
+        description: "As pontuações de todos os jogadores foram calculadas e atualizadas.",
+      });
+    } catch (e) {
+      console.error("Transaction failed: ", e);
+      toast({
+        variant: "destructive",
+        title: "Erro ao atualizar pontuações",
+        description: "Não foi possível calcular e atualizar as pontuações dos jogadores.",
+      });
+    }
+  }
+
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!firestore) return;
     setIsLoading(true);
 
+    const hasScore = typeof values.homeTeamScore === 'number' && typeof values.awayTeamScore === 'number';
+    
     const matchData = {
       ...values,
       matchDateTime: values.matchDateTime.toISOString(),
+      ...(hasScore && { homeTeamScore: values.homeTeamScore, awayTeamScore: values.awayTeamScore }),
     };
 
     if (isEditing) {
-      const matchDocRef = doc(firestore, 'matches', match.id);
+      const matchDocRef = doc(firestore, 'matches', match!.id);
       setDocumentNonBlocking(matchDocRef, matchData, { merge: true });
+
+      // If score was updated, trigger points calculation
+      if (hasScore) {
+        await processScoreUpdate(match!.id, values.homeTeamScore!, values.awayTeamScore!);
+      }
     } else {
       const matchesColRef = collection(firestore, 'matches');
       await addDocumentNonBlocking(matchesColRef, matchData);
