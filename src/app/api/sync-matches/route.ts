@@ -5,32 +5,36 @@
 // RAPIDAPI_HOST=api-football-v1.p.rapidapi.com
 
 import { NextResponse } from 'next/server';
-import { initializeApp, getApps, App, deleteApp } from 'firebase-admin/app';
+import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { ServiceAccount, cert } from 'firebase-admin/credential';
 
 // --- Helper Functions ---
 
-// Initialize Firebase Admin SDK
-function initializeFirebaseAdmin(): { db: Firestore; app: App } {
-  const appName = 'firebase-admin-app-sync-matches';
-  // Check if the app with this name is already initialized
-  const existingApp = getApps().find(app => app.name === appName);
-  if (existingApp) {
-    return { db: getFirestore(existingApp), app: existingApp };
+let adminApp: App | undefined;
+let firestore: Firestore | undefined;
+
+function initializeFirebaseAdmin() {
+  if (!adminApp) {
+    const serviceAccount = JSON.parse(
+      process.env.FIREBASE_CONFIG || '{}'
+    ) as ServiceAccount;
+    
+    // Check if the app is already initialized to avoid errors
+    if (getApps().length === 0) {
+      adminApp = initializeApp({
+        credential: cert(serviceAccount),
+      });
+    } else {
+      adminApp = getApps()[0];
+    }
   }
-
-  // This environment variable is automatically set by Firebase App Hosting.
-  const serviceAccount = JSON.parse(
-    process.env.FIREBASE_CONFIG || '{}'
-  ) as ServiceAccount;
-
-  const newApp = initializeApp({
-    credential: cert(serviceAccount),
-  }, appName);
-
-  return { db: getFirestore(newApp), app: newApp };
+  if (!firestore) {
+    firestore = getFirestore(adminApp);
+  }
+  return { db: firestore, app: adminApp };
 }
+
 
 // --- API Handler ---
 
@@ -39,7 +43,6 @@ export async function POST() {
   const PALMEIRAS_TEAM_ID = 127; 
   const BRASILEIRAO_LEAGUE_ID = 71;
   const SEASON = new Date().getFullYear();
-  let adminApp: App | undefined;
 
   if (!RAPIDAPI_KEY || !RAPIDAPI_HOST) {
     return NextResponse.json(
@@ -68,8 +71,7 @@ export async function POST() {
     }
 
     // 2. Initialize Firebase Admin
-    const { db, app } = initializeFirebaseAdmin();
-    adminApp = app;
+    const { db } = initializeFirebaseAdmin();
 
     // 3. Process and save matches
     const matchesCol = db.collection('matches');
@@ -85,14 +87,14 @@ export async function POST() {
         awayTeamScore: item.goals.away,
       };
 
-      // Only save the match data. Do not calculate scores.
+      // Only save the match data. The Cloud Function will handle score calculations.
       const matchDocRef = matchesCol.doc(match.id);
       await matchDocRef.set(match, { merge: true });
       matchesAdded++;
     }
 
     return NextResponse.json({
-      message: 'Sincronização de partidas concluída com sucesso! A atualização de pontos foi desativada para estabilizar o sistema.',
+      message: 'Sincronização de partidas concluída. O cálculo de pontos será feito em segundo plano pela Cloud Function.',
       matchesAdded,
     });
   } catch (error: any) {
