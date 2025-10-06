@@ -1,13 +1,14 @@
-
 // IMPORTANT: To use this API route, you must create a .env.local file
 // in the root of your project and add your RapidAPI credentials:
 // RAPIDAPI_KEY=your_secret_key
 // RAPIDAPI_HOST=api-football-v1.p.rapidapi.com
 
 import { NextResponse } from 'next/server';
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+// ----------------------------------------------------------------------
+// CORREÇÃO: Importe 'cert' e 'ServiceAccount' do caminho 'firebase-admin/app'
+import { initializeApp, getApps, App, cert, ServiceAccount } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
-import { ServiceAccount, cert } from 'firebase-admin/credential';
+// ----------------------------------------------------------------------
 
 // --- Helper Functions ---
 
