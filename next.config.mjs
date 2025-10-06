@@ -1,11 +1,12 @@
-import type {NextConfig} from 'next';
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   /* config options here */
   typescript: {
+    // Atenção: Isto ignora erros de tipagem no build. Use com cautela!
     ignoreBuildErrors: true,
   },
   eslint: {
+    // Atenção: Isto ignora erros de ESLint no build.
     ignoreDuringBuilds: true,
   },
   images: {
@@ -38,4 +39,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default nextConfig; // Esta sintaxe é correta para arquivos .mjs
