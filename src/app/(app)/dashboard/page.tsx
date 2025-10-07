@@ -1,14 +1,12 @@
 'use client';
-import {
-  Card,
-  CardContent,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { GuessCard } from '@/components/dashboard/guess-card';
+import { useMemo } from 'react';
 
 type Match = {
   id: string;
@@ -33,40 +31,54 @@ export default function DashboardPage() {
   const matchesQuery = useMemoFirebase(
     () =>
       firestore
-        ? query(collection(firestore, 'matches'), orderBy('matchDateTime', 'desc'))
+        ? query(collection(firestore, 'matches'), orderBy('matchDateTime', 'asc'))
         : null,
     [firestore]
   );
-  const { data: matches, isLoading: isLoadingMatches } = useCollection<Match>(matchesQuery);
-  
+  const { data: matches, isLoading: isLoadingMatches } =
+    useCollection<Match>(matchesQuery);
+
   const guessesQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, 'users', user.uid, 'guesses')) : null),
+    () =>
+      firestore && user
+        ? query(collection(firestore, 'users', user.uid, 'guesses'))
+        : null,
     [firestore, user]
   );
-  const { data: guesses, isLoading: isLoadingGuesses } = useCollection<Guess>(guessesQuery);
+  const { data: guesses, isLoading: isLoadingGuesses } =
+    useCollection<Guess>(guessesQuery);
+
+  const guessesMap = useMemo(
+    () =>
+      guesses?.reduce((acc, guess) => {
+        acc[guess.id] = guess;
+        return acc;
+      }, {} as Record<string, Guess>) ?? {},
+    [guesses]
+  );
+
+  const { upcomingMatches, finishedMatches } = useMemo(() => {
+    const now = new Date();
+    const upcoming: Match[] = [];
+    const finished: Match[] = [];
+
+    matches?.forEach((match) => {
+      const isFinished =
+        typeof match.homeTeamScore === 'number' &&
+        typeof match.awayTeamScore === 'number';
+      
+      if (isFinished || new Date(match.matchDateTime) < now) {
+         finished.push(match);
+      } else {
+        upcoming.push(match);
+      }
+    });
+     // Sort finished matches to show the most recent first
+    finished.sort((a, b) => new Date(b.matchDateTime).getTime() - new Date(a.matchDateTime).getTime());
+    
+    return { upcomingMatches: upcoming, finishedMatches: finished };
+  }, [matches]);
   
-  const guessesMap = useMemoFirebase(() => 
-    guesses?.reduce((acc, guess) => {
-      acc[guess.id] = guess;
-      return acc;
-    }, {} as Record<string, Guess>)
-  , [guesses]);
-
-  const getMatchStatus = (match: Match) => {
-    const isFinished =
-      typeof match.homeTeamScore === 'number' &&
-      typeof match.awayTeamScore === 'number';
-    return isFinished ? 'finished' : 'scheduled';
-  };
-
-  const upcomingMatches =
-    matches
-      ?.filter((match) => getMatchStatus(match) === 'scheduled')
-      .sort((a, b) => new Date(a.matchDateTime).getTime() - new Date(b.matchDateTime).getTime()) ?? [];
-
-  const finishedMatches =
-    matches?.filter((match) => getMatchStatus(match) === 'finished') ?? [];
-
   const isLoading = isLoadingMatches || isLoadingGuesses;
 
   return (
@@ -84,10 +96,17 @@ export default function DashboardPage() {
             Próximas Partidas
           </h2>
           {isLoading && <p>Carregando partidas...</p>}
-          {!isLoading && upcomingMatches.length === 0 && <p>Nenhuma partida agendada no momento.</p>}
+          {!isLoading && upcomingMatches.length === 0 && (
+            <p>Nenhuma partida agendada no momento.</p>
+          )}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {upcomingMatches.map((match) => (
-              <GuessCard key={match.id} match={match} initialGuess={guessesMap?.[match.id]} />
+            {upcomingMatches.map((match, index) => (
+              <GuessCard
+                key={match.id}
+                match={match}
+                initialGuess={guessesMap?.[match.id]}
+                isNextMatch={index === 0}
+              />
             ))}
           </div>
         </section>
@@ -99,7 +118,9 @@ export default function DashboardPage() {
             Resultados Anteriores
           </h2>
           {isLoading && <p>Carregando resultados...</p>}
-           {!isLoading && finishedMatches.length === 0 && <p>Nenhum resultado anterior.</p>}
+          {!isLoading && finishedMatches.length === 0 && (
+            <p>Nenhum resultado anterior.</p>
+          )}
           <div className="space-y-4">
             {finishedMatches.map((match) => {
               const userGuess = guessesMap?.[match.id];
@@ -113,24 +134,32 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center justify-center gap-2 font-bold text-base sm:gap-4 sm:text-lg">
                       <span>{match.homeTeam}</span>
-                      <span className="text-primary">{match.homeTeamScore}</span>
+                      <span className="text-primary">
+                        {match.homeTeamScore ?? '-'}
+                      </span>
                       <span>x</span>
-                      <span className="text-primary">{match.awayTeamScore}</span>
+                      <span className="text-primary">
+                        {match.awayTeamScore ?? '-'}
+                      </span>
                       <span>{match.awayTeam}</span>
                     </div>
-                    
+
                     <div className="text-sm text-muted-foreground">
-                      Seu palpite: {userGuess ? `${userGuess.homeTeamGuess} x ${userGuess.awayTeamGuess}` : 'N/A'}
+                      Seu palpite:{' '}
+                      {userGuess
+                        ? `${userGuess.homeTeamGuess} x ${userGuess.awayTeamGuess}`
+                        : 'N/A'}
                     </div>
 
-                    {userGuess && (typeof userGuess.pointsAwarded === 'number') && (
-                       <div className="text-sm text-green-600 font-bold justify-self-end">
-                        +{userGuess.pointsAwarded} Pontos
-                      </div>
-                    )}
+                    {userGuess &&
+                      typeof userGuess.pointsAwarded === 'number' && (
+                        <div className="text-sm text-green-600 font-bold justify-self-end">
+                          +{userGuess.pointsAwarded} Pontos
+                        </div>
+                      )}
                   </div>
                 </Card>
-              )
+              );
             })}
           </div>
         </section>

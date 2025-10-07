@@ -1,5 +1,4 @@
 'use client';
-
 import {
   Card,
   CardContent,
@@ -12,11 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useFirestore, useUser, setDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Timer } from 'lucide-react';
+import { CountdownTimer } from './countdown-timer';
 
 type Match = {
   id: string;
@@ -33,9 +33,10 @@ type Guess = {
 type GuessCardProps = {
   match: Match;
   initialGuess?: Guess | null;
+  isNextMatch?: boolean;
 };
 
-export function GuessCard({ match, initialGuess }: GuessCardProps) {
+export function GuessCard({ match, initialGuess, isNextMatch = false }: GuessCardProps) {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -46,6 +47,19 @@ export function GuessCard({ match, initialGuess }: GuessCardProps) {
   const [awayGuess, setAwayGuess] = useState<string>(
     initialGuess?.awayTeamGuess?.toString() ?? ''
   );
+  const [isLocked, setIsLocked] = useState(false);
+
+  const matchDate = new Date(match.matchDateTime);
+
+  useEffect(() => {
+    // Check if the match is less than 1 hour away
+    const oneHour = 60 * 60 * 1000;
+    const now = new Date();
+    if (matchDate.getTime() - now.getTime() < oneHour) {
+      setIsLocked(true);
+    }
+  }, [matchDate]);
+
 
   const handleSaveGuess = async () => {
     if (!user) {
@@ -53,6 +67,15 @@ export function GuessCard({ match, initialGuess }: GuessCardProps) {
         variant: 'destructive',
         title: 'Erro',
         description: 'Você precisa estar logado para salvar um palpite.',
+      });
+      return;
+    }
+    
+    if (isLocked) {
+       toast({
+        variant: 'destructive',
+        title: 'Tempo Esgotado',
+        description: 'Não é mais possível palpitar para esta partida.',
       });
       return;
     }
@@ -71,11 +94,10 @@ export function GuessCard({ match, initialGuess }: GuessCardProps) {
 
     setIsLoading(true);
     
-    // The guessId will be the matchId to ensure one guess per user per match
     const guessDocRef = doc(firestore, 'users', user.uid, 'guesses', match.id);
 
     const guessData = {
-      id: match.id, // Using matchId as guessId
+      id: match.id,
       userId: user.uid,
       matchId: match.id,
       homeTeamGuess: homeScore,
@@ -85,7 +107,6 @@ export function GuessCard({ match, initialGuess }: GuessCardProps) {
     
     setDocumentNonBlocking(guessDocRef, guessData, { merge: true });
 
-    // Using a timeout to give a feeling of async operation and let the user see the loading
     setTimeout(() => {
       toast({
         title: 'Palpite Salvo!',
@@ -95,9 +116,13 @@ export function GuessCard({ match, initialGuess }: GuessCardProps) {
     }, 1000);
 
   };
+  
+  const handleLockUpdate = (locked: boolean) => {
+    setIsLocked(locked);
+  }
 
   return (
-    <Card>
+    <Card className={cn("flex flex-col", isLocked ? "bg-muted/50" : "")}>
       <CardHeader>
         <CardTitle className="flex justify-between items-center text-lg">
           <span>
@@ -105,37 +130,54 @@ export function GuessCard({ match, initialGuess }: GuessCardProps) {
           </span>
         </CardTitle>
         <CardDescription>
-          {format(new Date(match.matchDateTime), "dd 'de' MMMM 'às' HH:mm", {
+          {format(matchDate, "dd 'de' MMMM 'às' HH:mm", {
             locale: ptBR,
           })}
         </CardDescription>
+         {isNextMatch && (
+          <div className="flex items-center text-sm text-amber-600 dark:text-amber-500 font-medium pt-2">
+            <Timer className="mr-2 h-4 w-4" />
+            <CountdownTimer targetDate={match.matchDateTime} onLockUpdate={handleLockUpdate} />
+          </div>
+        )}
       </CardHeader>
-      <CardContent className="flex items-center justify-center gap-4">
-        <Input
-          type="number"
-          min="0"
-          className="w-16 text-center text-2xl font-bold"
-          placeholder="0"
-          value={homeGuess}
-          onChange={(e) => setHomeGuess(e.target.value)}
-          disabled={isLoading}
-        />
-        <span className="text-2xl font-bold text-muted-foreground">x</span>
-        <Input
-          type="number"
-          min="0"
-          className="w-16 text-center text-2xl font-bold"
-          placeholder="0"
-          value={awayGuess}
-          onChange={(e) => setAwayGuess(e.target.value)}
-          disabled={isLoading}
-        />
+      <CardContent className="flex items-center justify-center gap-4 flex-grow">
+       {isLocked ? (
+          <div className='text-center font-semibold text-destructive'>
+            Palpites encerrados!
+          </div>
+        ) : (
+          <>
+            <Input
+              type="number"
+              min="0"
+              className="w-16 text-center text-2xl font-bold"
+              placeholder="0"
+              value={homeGuess}
+              onChange={(e) => setHomeGuess(e.target.value)}
+              disabled={isLoading || isLocked}
+            />
+            <span className="text-2xl font-bold text-muted-foreground">x</span>
+            <Input
+              type="number"
+              min="0"
+              className="w-16 text-center text-2xl font-bold"
+              placeholder="0"
+              value={awayGuess}
+              onChange={(e) => setAwayGuess(e.target.value)}
+              disabled={isLoading || isLocked}
+            />
+          </>
+        )}
       </CardContent>
       <CardFooter>
-        <Button className="w-full font-bold" onClick={handleSaveGuess} disabled={isLoading}>
+        <Button className="w-full font-bold" onClick={handleSaveGuess} disabled={isLoading || isLocked}>
           {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Salvar Palpite'}
         </Button>
       </CardFooter>
     </Card>
   );
+}
+function cn(arg0: string, arg1: string): string | undefined {
+  throw new Error('Function not implemented.');
 }
