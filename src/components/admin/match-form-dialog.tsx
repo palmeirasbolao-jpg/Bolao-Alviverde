@@ -36,10 +36,7 @@ import {
   addDocumentNonBlocking,
   setDocumentNonBlocking,
 } from '@/firebase/non-blocking-updates';
-import {
-  collection,
-  doc,
-} from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Match } from '@/app/(app)/admin/matches/page';
 
@@ -98,39 +95,55 @@ export function MatchFormDialog({
     if (!firestore) return;
     setIsLoading(true);
 
-    const hasScore = typeof values.homeTeamScore === 'number' && typeof values.awayTeamScore === 'number';
-    
-    const matchData = {
-      ...values,
-      matchDateTime: values.matchDateTime.toISOString(),
-      ...(hasScore ? { homeTeamScore: values.homeTeamScore, awayTeamScore: values.awayTeamScore } : {}),
-    };
-
     try {
-        if (isEditing && match?.id) {
-            const matchDocRef = doc(firestore, 'matches', match.id);
-            await setDocumentNonBlocking(matchDocRef, matchData, { merge: true });
+      if (isEditing && match?.id) {
+        // Editing an existing match
+        const hasScore =
+          typeof values.homeTeamScore === 'number' &&
+          typeof values.awayTeamScore === 'number';
+        const matchData = {
+          homeTeam: values.homeTeam,
+          awayTeam: values.awayTeam,
+          matchDateTime: values.matchDateTime.toISOString(),
+          ...(hasScore
+            ? {
+                homeTeamScore: values.homeTeamScore,
+                awayTeamScore: values.awayTeamScore,
+              }
+            : {}),
+        };
 
-            toast({
-              title: 'Partida atualizada!',
-              description: `A partida foi atualizada com sucesso.`,
-            });
-        } else {
-            const matchesColRef = collection(firestore, 'matches');
-            await addDocumentNonBlocking(matchesColRef, matchData);
-            toast({
-                title: 'Partida adicionada!',
-                description: 'A nova partida foi salva com sucesso.',
-            });
-        }
-    } catch (e: any) {
+        const matchDocRef = doc(firestore, 'matches', match.id);
+        await setDocumentNonBlocking(matchDocRef, matchData, { merge: true });
+
         toast({
-            variant: "destructive",
-            title: `Erro ao salvar partida`,
-            description: e.message || "Ocorreu um erro.",
+          title: 'Partida atualizada!',
+          description: `A partida foi atualizada com sucesso.`,
         });
+      } else {
+        // Creating a new match
+        // We exclude score fields as they are not set on creation
+        const matchData = {
+          homeTeam: values.homeTeam,
+          awayTeam: values.awayTeam,
+          matchDateTime: values.matchDateTime.toISOString(),
+        };
+
+        const matchesColRef = collection(firestore, 'matches');
+        await addDocumentNonBlocking(matchesColRef, matchData);
+        toast({
+          title: 'Partida adicionada!',
+          description: 'A nova partida foi salva com sucesso.',
+        });
+      }
+    } catch (e: any) {
+      toast({
+        variant: 'destructive',
+        title: `Erro ao salvar partida`,
+        description: e.message || 'Ocorreu um erro.',
+      });
     }
-    
+
     setIsLoading(false);
     onOpenChange(false);
   }
@@ -185,12 +198,16 @@ export function MatchFormDialog({
                         disabled={(date) => date < new Date('1900-01-01')}
                         initialFocus
                       />
-                       <div className="p-3 border-t border-border">
+                      <div className="p-3 border-t border-border">
                         <Input
                           type="time"
-                          defaultValue={field.value ? format(field.value, 'HH:mm') : ''}
+                          defaultValue={
+                            field.value ? format(field.value, 'HH:mm') : ''
+                          }
                           onChange={(e) => {
-                            const [hours, minutes] = e.target.value.split(':').map(Number);
+                            const [hours, minutes] = e.target.value
+                              .split(':')
+                              .map(Number);
                             const newDate = new Date(field.value || new Date());
                             newDate.setHours(hours, minutes);
                             field.onChange(newDate);
@@ -240,7 +257,12 @@ export function MatchFormDialog({
                     <FormItem className="flex-1">
                       <FormLabel>Gols (Casa)</FormLabel>
                       <FormControl>
-                        <Input type="number" min="0" {...field} />
+                        <Input
+                          type="number"
+                          min="0"
+                          {...field}
+                          value={field.value ?? ''}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -254,7 +276,12 @@ export function MatchFormDialog({
                     <FormItem className="flex-1">
                       <FormLabel>Gols (Visitante)</FormLabel>
                       <FormControl>
-                        <Input type="number" min="0" {...field} />
+                        <Input
+                          type="number"
+                          min="0"
+                          {...field}
+                          value={field.value ?? ''}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
