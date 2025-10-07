@@ -17,6 +17,7 @@ import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Timer } from 'lucide-react';
 import { CountdownTimer } from './countdown-timer';
+import { cn } from '@/lib/utils';
 
 type Match = {
   id: string;
@@ -177,7 +178,4 @@ export function GuessCard({ match, initialGuess, isNextMatch = false }: GuessCar
       </CardFooter>
     </Card>
   );
-}
-function cn(arg0: string, arg1: string): string | undefined {
-  throw new Error('Function not implemented.');
 }
